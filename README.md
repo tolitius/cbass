@@ -35,18 +35,19 @@ There are two primary ways data is found in HBase:
 #### Row key is known
 
 ```clojure
+user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"})
+user=> (store conn "galaxy:planet" "mars" "galaxy" {:inhabited? true :population 3 :age "4.503 billion years"})
+```
+
+```clojure
 ;; args:        conn, table, row key
 
-user=> (find-in conn "galaxy:planet" 42)
+user=> (find-in conn "galaxy:planet" "earth")
 {:age "4.543 billion years", :inhabited? true, :population 7125000000}
 ```
 
 #### Row key is unknown
 
-```clojure
-user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"})
-user=> (store conn "galaxy:planet" "mars" "galaxy" {:inhabited? true :population 3 :age "4.503 billion years"})
-```
 ```clojure
 ;; args:        conn, table, family, [:row-key-fn]
 
