@@ -52,6 +52,18 @@
         (.add p cf-bytes (sbytes (name k)) v-bytes)))
     p))
 
+(defn results->map [results row-key-fn]
+  (into {} (for [r results] 
+             [(row-key-fn (.getRow r)) 
+              (hdata->map r)])))
+
+(defn scan-in [conn table family & {:keys [row-key-fn]}]
+  (with-open [^HTableInterface h-table (get-table conn table)]
+    (let [results (-> (.iterator (.getScanner h-table (sbytes family)))
+                      iterator-seq)
+          row-key-fn (or row-key-fn #(String. %))]
+      (results->map results row-key-fn))))
+
 (defn find-in [conn table row-key]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [^Get g (hget row-key)]
