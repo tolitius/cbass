@@ -30,11 +30,11 @@
 (defn result-value [rv] 
   (thaw (val rv)))
 
-(defn hget [rkey]
-  (Get. (sbytes (str rkey))))
+(defn hget [row-key]
+  (Get. (sbytes (str row-key))))
 
-(defn get-with-keys [ks rkey cf]
-  (let [^Get g (hget rkey)
+(defn get-with-keys [ks row-key cf]
+  (let [^Get g (hget row-key)
         cf-bytes (sbytes cf)]
     (doseq [k ks]
       (.addColumn g cf-bytes (sbytes (name k))))
@@ -44,8 +44,8 @@
   (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
              [(result-key kv) (result-value kv)])))
 
-(defn map->hdata [m rkey cf]
-  (let [^Put p (Put. (sbytes (str rkey)))
+(defn map->hdata [m row-key cf]
+  (let [^Put p (Put. (sbytes (str row-key)))
         cf-bytes (sbytes cf)]
     (doseq [[k v] m]
       (when-let [v-bytes (n/freeze v)]
@@ -53,20 +53,27 @@
     p))
 
 (defn find-in [conn table row-key]
-  (let [^Get g (hget row-key)
-        ^HTableInterface h-table (get-table conn table)]
-    (-> (.get h-table g)
-        hdata->map)))
+  (with-open [^HTableInterface h-table (get-table conn table)]
+    (let [^Get g (hget row-key)]
+      (-> (.get h-table g)
+          hdata->map))))
 
-(defn store-in [conn table rkey cf vs]
-  (let [^HTableInterface h-table (get-table conn table)
-        ^Put h-data (map->hdata vs rkey cf)]
-    (.put h-table h-data)
-    (.close h-table)))
+(defn store [conn table row-key cf vs]
+  (with-open [^HTableInterface h-table (get-table conn table)]
+    (let [^Put h-data (map->hdata vs row-key cf)]
+      (.put h-table h-data))))
 
-;; (def conf {"hbase.zookeeper.quorum" "127.0.0.1:2181" "zookeeper.session.timeout" 30000})
-;; (require '[cbass :refer [new-connection store-in find-in]])
-;; (def conn (new-connection conf))
-;; 
-;; (store-in conn "galaxy:planet" 42 "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"})
-;; (find-in conn "galaxy:planet" 42)
+(defn delete
+  ([conn table row-key]
+   (delete conn table row-key nil nil))
+  ([conn table row-key family]
+   (delete conn table row-key family nil))
+  ([conn table row-key family columns]
+    (with-open [^HTableInterface h-table (get-table conn table)]
+      (let [^Delete d (Delete. (sbytes (str row-key)))]
+        (when family
+          (if columns
+            (doseq [c columns] 
+              (.deleteColumns d (sbytes (str family)) (sbytes (name c))))
+            (.deleteFamily d (sbytes (str family)))))
+        (.delete h-table d)))))
