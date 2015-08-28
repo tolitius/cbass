@@ -4,6 +4,9 @@
 * HBase is great at that
 * Clojure is great at "simple"
 
+--
+[![Clojars Project](http://clojars.org/cbass/latest-version.svg)](http://clojars.org/cbass)
+
 ## Show me
 
 ```clojure
