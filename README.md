@@ -57,24 +57,26 @@ user=> (find-in conn "galaxy:planet" "earth" "galaxy" #{:age :population})
 
 ### Finding by "anything"
 
-HBase calls the scanners, hence the `scan-in` function name.
-Let's first look directly at HBase to see the data we are going to scan:
+HBase calls them scanners, hence the `scan-in` function name.
+
+Let's first look directly at HBase (shell) to see the data we are going to scan over:
 
 ```clojure
 hbase(main):002:0> scan 'galaxy:planet'
-ROW                                     COLUMN+CELL
- earth                                  column=galaxy:age, timestamp=1440880021543, value=NPY\x00i\x134.543 billion years
- earth                                  column=galaxy:inhabited?, timestamp=1440880021543, value=NPY\x00\x04\x01
- earth                                  column=galaxy:population, timestamp=1440880021543, value=NPY\x00+\x00\x00\x00\x01\xA8\xAE\xDF@
- mars                                   column=galaxy:age, timestamp=1440880028315, value=NPY\x00i\x134.503 billion years
- mars                                   column=galaxy:inhabited?, timestamp=1440880028315, value=NPY\x00\x04\x01
- mars                                   column=galaxy:population, timestamp=1440880028315, value=NPY\x00d\x03
- neptune                                column=galaxy:age, timestamp=1440880036629, value=NPY\x00i\x134.503 billion years
- neptune                                column=galaxy:inhabited?, timestamp=1440880036629, value=NPY\x00j\x07unknown
+ROW         COLUMN+CELL
+ earth      column=galaxy:age, timestamp=1440880021543, value=NPY\x00i\x134.543 billion years
+ earth      column=galaxy:inhabited?, timestamp=1440880021543, value=NPY\x00\x04\x01
+ earth      column=galaxy:population, timestamp=1440880021543, value=NPY\x00+\x00\x00\x00\x01\xA8\xAE\xDF@
+ mars       column=galaxy:age, timestamp=1440880028315, value=NPY\x00i\x134.503 billion years
+ mars       column=galaxy:inhabited?, timestamp=1440880028315, value=NPY\x00\x04\x01
+ mars       column=galaxy:population, timestamp=1440880028315, value=NPY\x00d\x03
+ neptune    column=galaxy:age, timestamp=1440880036629, value=NPY\x00i\x134.503 billion years
+ neptune    column=galaxy:inhabited?, timestamp=1440880036629, value=NPY\x00j\x07unknown
 3 row(s) in 0.0230 seconds
 ```
 
 HBase scanning is pretty flexible: by row key from/to prefixes, by time ranges, by families/columns, etc..
+
 Here are some examples:
 
 #### Scanning the whole table
@@ -83,6 +85,7 @@ Here are some examples:
 ;; args:        conn, table, {:row-key-fn, :family, :columns, :from, :to, :time-range {:from-ms :to-ms}}
 
 user=> (scan-in conn "galaxy:planet")
+
 {"earth"
  {:age "4.543 billion years",
   :inhabited? true,
@@ -100,6 +103,7 @@ Hence to read a row key from HBase, a custom row key function may come handy:
 ;; args:        conn, table, {:row-key-fn, :family, :columns, :from, :to, :time-range {:from-ms :to-ms}}
 
 user=> (scan-in conn "galaxy:planet" :row-key-fn #(keyword (String. %)))
+
 {:earth
  {:age "4.543 billion years",
   :inhabited? true,
@@ -114,6 +118,7 @@ by family
 
 ```clojure
 user=> (scan-in conn "galaxy:planet" :family "galaxy")
+
 {"earth"
  {:age "4.543 billion years",
   :inhabited? true,
@@ -135,7 +140,7 @@ user=> (scan-in conn "galaxy:planet" :family "galaxy"
 
 #### Scanning by row key prefix
 
-Data can be scanned by a row key prefix by using `:from` and/or `:to` keys:
+Data can be scanned by a row key prefix using `:from` and/or `:to` keys:
 
 ```clojure
 user=> (scan-in conn "galaxy:planet" :from "ma")
@@ -179,7 +184,7 @@ user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880021544
  "neptune" {:age "4.503 billion years", :inhabited? :unknown}}
 ```
 
-in case `:from-ms` is missing, it defauts to 0:
+in case `:from-ms` is missing, it defauts to `0`:
 
 ```clojure
 user=> (scan-in conn "galaxy:planet" :time-range {:to-ms 1440880036629})
@@ -191,7 +196,7 @@ user=> (scan-in conn "galaxy:planet" :time-range {:to-ms 1440880036629})
  "mars" {:age "4.503 billion years", :inhabited? true, :population 3}}
 ```
 
-same analogy with `:to-ms`, if it is mising it is `Long/MAX_VALUE`:
+same analogy with `:to-ms`, if it is mising, it defaults to `Long/MAX_VALUE`:
 
 ```clojure
 user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880036629})
@@ -201,7 +206,7 @@ user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880036629})
 
 #### Scanning by "anything"
 
-Of course all the above can be combined together, and that's the beauty or scanners:
+Of course _all_ of the above can be combined together, and that's the beauty or scanners:
 
 ```clojure
 user=> (scan-in conn "galaxy:planet" :family "galaxy" 
@@ -229,7 +234,7 @@ user=> (find-in conn "galaxy:planet" "earth")
 {:inhabited true}
 ```
 
-Deleting column family:
+Deleting a column family:
 
 ```clojure
 ;; args:       conn, table, row key, [family, columns]
@@ -240,7 +245,7 @@ user=> (find-in conn "galaxy:planet" "earth")
 {}
 ```
 
-Deleting whole row:
+Deleting a whole row:
 
 ```clojure
 ;; args:       conn, table, row key, [family, columns]
