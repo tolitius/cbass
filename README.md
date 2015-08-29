@@ -10,7 +10,7 @@
 ## Show me
 
 ```clojure
-(require '[cbass :refer [new-connection store find-in scan-in delete]])
+(require '[cbass :refer [new-connection store find-by scan delete]])
 ```
 
 ## Connecting to HBase
@@ -25,7 +25,15 @@
 ```clojure 
 ;; args:      conn, table, row key, family, data
 
-user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"})
+user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true 
+                                                     :population 7125000000 
+                                                     :age "4.543 billion years"})
+```
+
+Depending on a key strategy/structure sometimes it makes sense to only store row-keys / families witout values:
+
+```clojure
+user=> (store conn "galaxy:planet" "pluto" "galaxy")
 ```
 
 ## Finding it
@@ -38,26 +46,21 @@ There are two primary ways data is found in HBase:
 ### Finding by the row key
 
 ```clojure
-user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"})
-user=> (store conn "galaxy:planet" "mars" "galaxy" {:inhabited? true :population 3 :age "4.503 billion years"})
-```
-
-```clojure
 ;; args:        conn, table, row key, [family, columns]
 
-user=> (find-in conn "galaxy:planet" "earth")
+user=> (find-by conn "galaxy:planet" "earth")
 {:age "4.543 billion years", :inhabited? true, :population 7125000000}
 
-user=> (find-in conn "galaxy:planet" "earth" "galaxy")
+user=> (find-by conn "galaxy:planet" "earth" "galaxy")
 {:age "4.543 billion years", :inhabited? true, :population 7125000000}
 
-user=> (find-in conn "galaxy:planet" "earth" "galaxy" #{:age :population})
+user=> (find-by conn "galaxy:planet" "earth" "galaxy" #{:age :population})
 {:age "4.543 billion years", :population 7125000000}
 ```
 
 ### Finding by "anything"
 
-HBase calls them scanners, hence the `scan-in` function name.
+HBase calls them scanners, hence the `scan` function name.
 
 Let's first look directly at HBase (shell) to see the data we are going to scan over:
 
@@ -84,7 +87,7 @@ Here are some examples:
 ```clojure
 ;; args:        conn, table, {:row-key-fn, :family, :columns, :from, :to, :time-range {:from-ms :to-ms}}
 
-user=> (scan-in conn "galaxy:planet")
+user=> (scan conn "galaxy:planet")
 
 {"earth"
  {:age "4.543 billion years",
@@ -102,7 +105,7 @@ Hence to read a row key from HBase, a custom row key function may come handy:
 ```clojure
 ;; args:        conn, table, {:row-key-fn, :family, :columns, :from, :to, :time-range {:from-ms :to-ms}}
 
-user=> (scan-in conn "galaxy:planet" :row-key-fn #(keyword (String. %)))
+user=> (scan conn "galaxy:planet" :row-key-fn #(keyword (String. %)))
 
 {:earth
  {:age "4.543 billion years",
@@ -117,7 +120,7 @@ user=> (scan-in conn "galaxy:planet" :row-key-fn #(keyword (String. %)))
 by family
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :family "galaxy")
+user=> (scan conn "galaxy:planet" :family "galaxy")
 
 {"earth"
  {:age "4.543 billion years",
@@ -130,8 +133,8 @@ user=> (scan-in conn "galaxy:planet" :family "galaxy")
 specifying columns (qualifiers)
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :family "galaxy" 
-                                     :columns #{:age :inhabited?})
+user=> (scan conn "galaxy:planet" :family "galaxy" 
+                                  :columns #{:age :inhabited?})
 
 {"earth" {:age "4.543 billion years", :inhabited? true},
  "mars" {:age "4.503 billion years", :inhabited? true},
@@ -143,7 +146,7 @@ user=> (scan-in conn "galaxy:planet" :family "galaxy"
 Data can be scanned by a row key prefix using `:from` and/or `:to` keys:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :from "ma")
+user=> (scan conn "galaxy:planet" :from "ma")
 
 {"mars" {:age "4.503 billion years", :inhabited? true, :population 3},
  "neptune" {:age "4.503 billion years", :inhabited? :unknown}}
@@ -152,8 +155,8 @@ user=> (scan-in conn "galaxy:planet" :from "ma")
 `:to` is exclusive:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :from "ea" 
-                                     :to "ma")
+user=> (scan conn "galaxy:planet" :from "ea" 
+                                  :to "ma")
 
 {"earth" {:age "4.543 billion years", :inhabited? true, :population 7125000000}}
 ```
@@ -161,7 +164,7 @@ user=> (scan-in conn "galaxy:planet" :from "ea"
 notice, no Neptune:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :to "nep")
+user=> (scan conn "galaxy:planet" :to "nep")
 
 {"earth"
  {:age "4.543 billion years",
@@ -177,8 +180,8 @@ If you look at the data from HBase shell (above), you'll see that every row has 
 These timestamps can be used to scan data within a certain time range:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880021544 
-                                                  :to-ms 1440880036630})
+user=> (scan conn "galaxy:planet" :time-range {:from-ms 1440880021544 
+                                               :to-ms 1440880036630})
 
 {"mars" {:age "4.503 billion years", :inhabited? true, :population 3},
  "neptune" {:age "4.503 billion years", :inhabited? :unknown}}
@@ -187,7 +190,7 @@ user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880021544
 in case `:from-ms` is missing, it defauts to `0`:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :time-range {:to-ms 1440880036629})
+user=> (scan conn "galaxy:planet" :time-range {:to-ms 1440880036629})
 
 {"earth"
  {:age "4.543 billion years",
@@ -199,7 +202,7 @@ user=> (scan-in conn "galaxy:planet" :time-range {:to-ms 1440880036629})
 same analogy with `:to-ms`, if it is mising, it defaults to `Long/MAX_VALUE`:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880036629})
+user=> (scan conn "galaxy:planet" :time-range {:from-ms 1440880036629})
 
 {"neptune" {:age "4.503 billion years", :inhabited? :unknown}}
 ```
@@ -209,11 +212,11 @@ user=> (scan-in conn "galaxy:planet" :time-range {:from-ms 1440880036629})
 Of course _all_ of the above can be combined together, and that's the beauty or scanners:
 
 ```clojure
-user=> (scan-in conn "galaxy:planet" :family "galaxy" 
-                                     :columns #{:age}
-                                     :from "ma" 
-                                     :to "z" 
-                                     :time-range {:to-ms 1440880036630})
+user=> (scan conn "galaxy:planet" :family "galaxy" 
+                                  :columns #{:age}
+                                  :from "ma" 
+                                  :to "z" 
+                                  :time-range {:to-ms 1440880036630})
 
 {"mars" {:age "4.503 billion years"},
  "neptune" {:age "4.503 billion years"}}
@@ -230,7 +233,7 @@ Deleting specific columns:
 
 user=> (delete conn "galaxy:planet" "earth" "galaxy" #{:age :population})
 
-user=> (find-in conn "galaxy:planet" "earth")
+user=> (find-by conn "galaxy:planet" "earth")
 {:inhabited true}
 ```
 
@@ -241,7 +244,7 @@ Deleting a column family:
 
 user=> (delete conn "galaxy:planet" "earth" "galaxy")
 
-user=> (find-in conn "galaxy:planet" "earth")
+user=> (find-by conn "galaxy:planet" "earth")
 {}
 ```
 
@@ -252,7 +255,7 @@ Deleting a whole row:
 
 user=> (delete conn "galaxy:planet" "mars")
 
-user=> (find-in conn "galaxy:planet" "mars")
+user=> (find-by conn "galaxy:planet" "mars")
 {}
 ```
 

@@ -29,12 +29,12 @@
   (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
              [(result-key kv) (result-value kv)])))
 
-(defn map->hdata [m row-key cf]
+(defn map->hdata [row-key family columns]
   (let [^Put p (Put. (to-bytes (str row-key)))
-        cf-bytes (to-bytes cf)]
-    (doseq [[k v] m]
+        f-bytes (to-bytes family)]
+    (doseq [[k v] columns]
       (when-let [v-bytes (n/freeze v)]
-        (.add p cf-bytes (to-bytes (name k)) v-bytes)))
+        (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
 (defn results->map [results row-key-fn]
@@ -42,18 +42,18 @@
              [(row-key-fn (.getRow r)) 
               (hdata->map r)])))
 
-(defn scan-in [conn table & {:keys [row-key-fn] :as criteria}]
+(defn scan [conn table & {:keys [row-key-fn] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. %))]
       (results->map results row-key-fn))))
 
-(defn find-in
+(defn find-by
   ([conn table row-key]
-   (find-in conn table row-key nil nil))
+   (find-by conn table row-key nil nil))
   ([conn table row-key family]
-   (find-in conn table row-key family nil))
+   (find-by conn table row-key family nil))
   ([conn table row-key family columns]
     (with-open [^HTableInterface h-table (get-table conn table)]
       (let [^Get g (Get. (to-bytes row-key))]
@@ -65,10 +65,17 @@
         (-> (.get h-table g)
             hdata->map)))))
 
-(defn store [conn table row-key cf vs]
-  (with-open [^HTableInterface h-table (get-table conn table)]
-    (let [^Put h-data (map->hdata vs row-key cf)]
-      (.put h-table h-data))))
+(defn store 
+  ([conn table row-key family]
+    (with-open [^HTableInterface h-table (get-table conn table)]
+      (let [^Put p (Put. (to-bytes row-key))]
+        (.put h-table (.add p (to-bytes family)   ;; in case there are no columns, just store row-key and family
+                              (byte-array 0) 
+                              (byte-array 0))))))
+  ([conn table row-key family columns]
+    (with-open [^HTableInterface h-table (get-table conn table)]
+      (let [^Put h-data (map->hdata row-key family columns)]
+        (.put h-table h-data)))))
 
 (defn delete
   ([conn table row-key]
