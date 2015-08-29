@@ -1,16 +1,11 @@
 (ns cbass
-  (:require [taoensso.nippy :as n])
+  (:require [taoensso.nippy :as n]
+            [cbass.scan :refer [scan-filter]]
+            [cbass.tools :refer [to-bytes thaw]])
   (:import [org.apache.hadoop.hbase.util Bytes]
            [org.apache.hadoop.hbase TableName HConstants]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.hbase.client HConnection HConnectionManager HTableInterface Get Put Delete Scan Result]))
-
-(defmacro sbytes [s]
- `(.getBytes ~s))
-
-(defmacro thaw [data]
-  `(when ~data 
-     (n/thaw ~data)))
 
 (defn- ^HConnection create-connection [conf]
   (let [configuration (Configuration.)]
@@ -30,26 +25,16 @@
 (defn result-value [rv] 
   (thaw (val rv)))
 
-(defn hget [row-key]
-  (Get. (sbytes (str row-key))))
-
-(defn get-with-keys [ks row-key cf]
-  (let [^Get g (hget row-key)
-        cf-bytes (sbytes cf)]
-    (doseq [k ks]
-      (.addColumn g cf-bytes (sbytes (name k))))
-    g))
-
 (defn hdata->map [^Result data]
   (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
              [(result-key kv) (result-value kv)])))
 
 (defn map->hdata [m row-key cf]
-  (let [^Put p (Put. (sbytes (str row-key)))
-        cf-bytes (sbytes cf)]
+  (let [^Put p (Put. (to-bytes (str row-key)))
+        cf-bytes (to-bytes cf)]
     (doseq [[k v] m]
       (when-let [v-bytes (n/freeze v)]
-        (.add p cf-bytes (sbytes (name k)) v-bytes)))
+        (.add p cf-bytes (to-bytes (name k)) v-bytes)))
     p))
 
 (defn results->map [results row-key-fn]
@@ -57,18 +42,28 @@
              [(row-key-fn (.getRow r)) 
               (hdata->map r)])))
 
-(defn scan-in [conn table family & {:keys [row-key-fn]}]
+(defn scan-in [conn table & {:keys [row-key-fn] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
-    (let [results (-> (.iterator (.getScanner h-table (sbytes family)))
+    (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. %))]
       (results->map results row-key-fn))))
 
-(defn find-in [conn table row-key]
-  (with-open [^HTableInterface h-table (get-table conn table)]
-    (let [^Get g (hget row-key)]
-      (-> (.get h-table g)
-          hdata->map))))
+(defn find-in
+  ([conn table row-key]
+   (find-in conn table row-key nil nil))
+  ([conn table row-key family]
+   (find-in conn table row-key family nil))
+  ([conn table row-key family columns]
+    (with-open [^HTableInterface h-table (get-table conn table)]
+      (let [^Get g (Get. (to-bytes row-key))]
+        (when family
+          (if columns
+            (doseq [c columns] 
+              (.addColumn g (to-bytes family) (to-bytes (name c))))
+            (.addFamily g (to-bytes family))))
+        (-> (.get h-table g)
+            hdata->map)))))
 
 (defn store [conn table row-key cf vs]
   (with-open [^HTableInterface h-table (get-table conn table)]
@@ -82,10 +77,10 @@
    (delete conn table row-key family nil))
   ([conn table row-key family columns]
     (with-open [^HTableInterface h-table (get-table conn table)]
-      (let [^Delete d (Delete. (sbytes (str row-key)))]
+      (let [^Delete d (Delete. (to-bytes row-key))]
         (when family
           (if columns
             (doseq [c columns] 
-              (.deleteColumns d (sbytes (str family)) (sbytes (name c))))
-            (.deleteFamily d (sbytes (str family)))))
+              (.deleteColumns d (to-bytes family) (to-bytes (name c))))
+            (.deleteFamily d (to-bytes family))))
         (.delete h-table d)))))
