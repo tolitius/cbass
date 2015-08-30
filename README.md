@@ -245,7 +245,7 @@ Deleting a column family:
 user=> (delete conn "galaxy:planet" "earth" "galaxy")
 
 user=> (find-by conn "galaxy:planet" "earth")
-{}
+nil
 ```
 
 Deleting a whole row:
@@ -256,7 +256,7 @@ Deleting a whole row:
 user=> (delete conn "galaxy:planet" "mars")
 
 user=> (find-by conn "galaxy:planet" "mars")
-{}
+nil
 ```
 
 ## License
