@@ -27,7 +27,8 @@
 
 (defn hdata->map [^Result data]
   (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
-             [(result-key kv) (result-value kv)])))
+             (if-let [v (result-value kv)]
+               [(result-key kv) v]))))
 
 (defn map->hdata [row-key family columns]
   (let [^Put p (Put. (to-bytes (str row-key)))
