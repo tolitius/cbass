@@ -14,7 +14,6 @@
 (defmacro from-bytes [s]
  `(Bytes/fromBytes ~s))
 
-(defmacro thaw [data]
-  `(when (seq ~data)
-     (n/thaw ~data)))
-
+(defn thaw [data]
+  (when (seq data)
+    (n/thaw data)))

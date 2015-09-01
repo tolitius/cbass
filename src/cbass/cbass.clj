@@ -7,6 +7,13 @@
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.hbase.client HConnection HConnectionManager HTableInterface Get Put Delete Scan Result]))
 
+(def pack (atom n/freeze))
+(def unpack (atom thaw))
+
+(defn pack-un-pack [{:keys [p u]}]
+  (when p (reset! pack p))
+  (when u (reset! unpack u)))
+
 (defn- ^HConnection create-connection [conf]
   (let [configuration (Configuration.)]
     (doseq [[k v] conf]
@@ -23,7 +30,7 @@
   (-> (String. (key rk)) keyword))
 
 (defn result-value [rv] 
-  (thaw (val rv)))
+  (@unpack (val rv)))
 
 (defn hdata->map [^Result data]
   (when-let [r (.getRow data)]
@@ -35,7 +42,7 @@
   (let [^Put p (Put. (to-bytes (str row-key)))
         f-bytes (to-bytes family)]
     (doseq [[k v] columns]
-      (when-let [v-bytes (n/freeze v)]
+      (when-let [v-bytes (@pack v)]
         (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
