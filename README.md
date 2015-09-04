@@ -207,6 +207,29 @@ user=> (scan conn "galaxy:planet" :time-range {:from-ms 1440880036629})
 {"neptune" {:age "4.503 billion years", :inhabited? :unknown}}
 ```
 
+#### Scanning in reverse
+
+Here is a regular table scan with all the defaults:
+
+```
+user=> (scan conn "galaxy:planet")
+
+{"earth" {:age "4.543 billion years", :inhabited? true, :population 7125000000},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown}}
+```
+
+many times it makes sense to scan table in reverse order 
+to have access to the latest updates first without scanning the whole search space:
+
+```
+user=> (scan conn "galaxy:planet" :reverse? true)
+
+{"neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
+ "earth" {:age "4.543 billion years", :inhabited? true, :population 7125000000}}
+```
+
 #### Scanning by "anything"
 
 Of course _all_ of the above can be combined together, and that's the beauty or scanners:

@@ -15,6 +15,9 @@
         t (or to Long/MAX_VALUE)]
     (.setTimeRange scanner f t)))
 
+(defn- set-reverse! [^Scan scanner reverse?]
+  (.setReversed scanner reverse?))
+
 (defn- add-family [^Scan scanner family]
   (.addFamily scanner (to-bytes family)))
 
@@ -23,12 +26,13 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
-(defn scan-filter [{:keys [family columns from to time-range]}]
+(defn scan-filter [{:keys [family columns from to time-range reverse?]}]
   (let [scanner (Scan.)
         {:keys [from-ms to-ms]} time-range
         params [(if (and family (seq columns))
                   [add-columns [family columns]]
                   [add-family family])
+                [set-reverse! reverse?]
                 [set-start-row! from]
                 [set-stop-row! to]
                 [set-time-range! (when (or from-ms to-ms) 
