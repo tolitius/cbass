@@ -39,7 +39,7 @@
                  [(result-key kv) v])))))
 
 (defn map->hdata [row-key family columns]
-  (let [^Put p (Put. (to-bytes (str row-key)))
+  (let [^Put p (Put. (to-bytes row-key))
         f-bytes (to-bytes family)]
     (doseq [[k v] columns]
       (when-let [v-bytes (@pack v)]
