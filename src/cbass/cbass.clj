@@ -35,7 +35,7 @@
 (defn hdata->map [^Result data]
   (when-let [r (.getRow data)]
     (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
-               (if-let [v (result-value kv)]
+               (if-some [v (result-value kv)]
                  [(result-key kv) v])))))
 
 (defn map->hdata [row-key family columns]
