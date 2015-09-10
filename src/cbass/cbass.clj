@@ -15,14 +15,11 @@
   (when p (reset! pack p))
   (when u (reset! unpack u)))
 
-(defn- ^HConnection create-connection [conf]
+(defn ^HConnection new-connection [conf]
   (let [configuration (Configuration.)]
     (doseq [[k v] conf]
       (.set configuration k (str v)))
     (HConnectionManager/createConnection configuration)))
-
-(def new-connection 
-  (memoize create-connection))
 
 (defn get-table [^HConnection c ^String t-name]
   (.getTable c t-name))
