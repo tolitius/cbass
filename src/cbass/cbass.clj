@@ -2,7 +2,8 @@
   (:require [taoensso.nippy :as n]
             [cbass.scan :refer [scan-filter]]
             [cbass.tools :refer [to-bytes thaw]])
-  (:import [org.apache.hadoop.hbase.util Bytes]
+  (:import [java.util ArrayList]
+           [org.apache.hadoop.hbase.util Bytes]
            [org.apache.hadoop.hbase TableName HConstants]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.hbase.client HConnection HConnectionManager HTableInterface Get Put Delete Scan Result]))
@@ -100,3 +101,13 @@
               (.deleteColumns d (to-bytes family) (to-bytes (name c))))
             (.deleteFamily d (to-bytes family))))
         (.delete h-table d)))))
+
+(defn delete-by [conn table & by]
+  (let [row-keys (keys (apply scan conn table by))
+        delete-key-fn (:delete-key-fn (apply hash-map by))
+        bulk (ArrayList. (map #(Delete. (if delete-key-fn
+                                          (delete-key-fn %)
+                                          (to-bytes %))) row-keys))]
+    (when (seq row-keys)
+      (with-open [^HTableInterface h-table (get-table conn table)]
+        (.delete h-table bulk)))))

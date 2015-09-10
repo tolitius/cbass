@@ -249,7 +249,7 @@ There are lots of other ways to "scan the cat", but for now here are several.
 
 ## Deleting it
 
-Deleting specific columns:
+#### Deleting specific columns
 
 ```clojure
 ;; args:       conn, table, row key, [family, columns]
@@ -260,7 +260,7 @@ user=> (find-by conn "galaxy:planet" "earth")
 {:inhabited true}
 ```
 
-Deleting a column family:
+#### Deleting a column family
 
 ```clojure
 ;; args:       conn, table, row key, [family, columns]
@@ -271,7 +271,7 @@ user=> (find-by conn "galaxy:planet" "earth")
 nil
 ```
 
-Deleting a whole row:
+#### Deleting a whole row
 
 ```clojure
 ;; args:       conn, table, row key, [family, columns]
@@ -280,6 +280,100 @@ user=> (delete conn "galaxy:planet" "mars")
 
 user=> (find-by conn "galaxy:planet" "mars")
 nil
+```
+
+### Deleting by anything
+
+There is often a case where rows need to be deleted by a filter similar to the one used when scanning for data.
+(i.e. by row key prefix, time range, etc.)
+HBase does not realy help there besides providing a [BulkDeleteEndpoint](http://archive.cloudera.com/cdh5/cdh/5/hbase/apidocs/org/apache/hadoop/hbase/coprocessor/example/BulkDeleteEndpoint.html) coprocessor.
+
+This is not ideal as it delegates work to HBase "stored procedures" (effectively that is what coprocessors are).
+It really pays off when there is a massive data manipulation is needed since it does happen directly on the server,
+but in simpler cases, which are many, coprocessors are less than ideal.
+
+**cbass** achives "deleting by anything" by a trivial flow: "scan + multi delete" packed in a "delete-by" function
+which preserves the "scan"'s syntax:
+
+```clojure
+user=> (scan conn "galaxy:planet")
+{"earth"
+ {:age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "pluto" {},
+ "saturday" {:age "24 hours", :inhabited? :sometimes},
+ "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
+
+user=> (delete-by conn "galaxy:planet" :from "sat" :to "saz")
+;; deleting [saturday saturn], since they both match the 'from/to' criteria
+```
+
+look ma, no saturn, no saturday:
+
+```clojure
+user=> (scan conn "galaxy:planet")
+{"earth"
+ {:age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "pluto" {}}
+```
+
+and of course any other criteria that is available in "scan" is available in "delete-by".
+
+### Delete row key function
+
+Most of the time HBase keys are prefixed (salted with a prefix).
+This is done to avoid ["RegionServer hotspotting"](http://hbase.apache.org/book.html#rowkey.design).
+
+"delete-by" internally does a "scan" and returns keys that matched. Hence in order to delete these keys
+they have to be "re-salt-ed" according to the custom key design.
+
+**cbass** addresses this by taking an optional `delete-key-fn`, which allows to "put some salt back" on those keys.
+
+Here is a real world example:
+
+```clojure
+;; HBase data
+
+user=> (scan conn "table:name")
+{"���|8276345793754387439|transfer" {...},
+ "���|8276345793754387439|match" {...},
+ "���|8276345793754387439|trade" {...},
+ "�d\k^|28768787578329|transfer" {...},
+ "�d\k^|28768787578329|match" {...},
+ "�d\k^|28768787578329|trade" {...}}
+```
+
+a couple observations about the key:
+
+* it is prefixed with salt
+* it is piped delimited 
+
+In order to delete, say, all keys that start with `8276345793754387439`,
+besides providing `:from` and `:to`, we would need to provide a `:row-key-fn` 
+that would _de_ salt and split, and then a `delete-key-fn` that can reassemble it back:
+
+```clojure
+(delete-by conn progress :row-key-fn (comp split-key without-salt)
+                         :delete-key-fn (fn [[x p]] (with-salt x p))
+                         :from (-> "8276345793754387439" salt-pipe)
+                         :to   (-> "8276345793754387439" salt-pipe+))))
+```
+
+`*salt`, `*split` and `*pipe` functions are not from **cbass**, 
+they are here to illustrate the point of how "delete-by" can be used to take on the real world.
+
+```clojure
+;; HBase data after the "delete-by"
+
+user=> (scan conn "table:name")
+{"�d\k^|28768787578329|transfer" {...},
+ "�d\k^|28768787578329|match" {...},
+ "�d\k^|28768787578329|trade" {...}}
 ```
 
 ## License
