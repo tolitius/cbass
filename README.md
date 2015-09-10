@@ -284,12 +284,11 @@ nil
 
 ### Deleting by anything
 
-There is often a case where rows need to be deleted by a filter similar to the one used when scanning for data.
-(i.e. by row key prefix, time range, etc.)
-HBase does not realy help there besides providing a [BulkDeleteEndpoint](http://archive.cloudera.com/cdh5/cdh/5/hbase/apidocs/org/apache/hadoop/hbase/coprocessor/example/BulkDeleteEndpoint.html) coprocessor.
+There is often a case where rows need to be deleted by a filter, that is similar to the one used in [scan](https://github.com/tolitius/cbass#scanning-by-anything) (i.e. by row key prefix, time range, etc.)
+HBase does not really help there besides providing a [BulkDeleteEndpoint](http://archive.cloudera.com/cdh5/cdh/5/hbase/apidocs/org/apache/hadoop/hbase/coprocessor/example/BulkDeleteEndpoint.html) coprocessor.
 
 This is not ideal as it delegates work to HBase "stored procedures" (effectively that is what coprocessors are).
-It really pays off when there is a massive data manipulation is needed since it does happen directly on the server,
+It really pays off during massive data manipulation since it does happen _directly_ on the server,
 but in simpler cases, which are many, coprocessors are less than ideal.
 
 **cbass** achives "deleting by anything" by a trivial flow: "scan + multi delete" packed in a "delete-by" function
