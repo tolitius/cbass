@@ -173,6 +173,37 @@ user=> (scan conn "galaxy:planet" :to "nep")
  "mars" {:age "4.503 billion years", :inhabited? true, :population 3}}
 ```
 
+##### :starts-with
+
+Starting from hbase-client `0.99.1`, cbass can just do `:starts-with`, in case no `:to` is needed.
+
+Notice, we added `saturday` and `saturn` for a better example:
+
+```clojure
+user=> (scan conn "galaxy:planet")
+
+{"earth"
+ {:age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "pluto" {},
+ "saturday" {:age "24 hours", :inhabited? :sometimes},
+ "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
+```
+
+using `:starts-with`:
+
+```clojure
+user=> (scan conn "galaxy:planet" :family "galaxy" :starts-with "sa")
+
+{"saturday" {:age "24 hours", :inhabited? :sometimes},
+ "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
+```
+
+
+
 #### Scanning by time range
 
 If you look at the data from HBase shell (above), you'll see that every row has a timestamp associated with it.
