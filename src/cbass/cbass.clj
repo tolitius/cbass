@@ -49,12 +49,15 @@
              [(row-key-fn (.getRow r)) 
               (hdata->map r)])))
 
-(defn scan [conn table & {:keys [row-key-fn] :as criteria}]
+(defn scan [conn table & {:keys [row-key-fn limit] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. %))]
-      (results->map results row-key-fn))))
+      (results->map (if-not limit
+                      results
+                      (take limit results))
+                    row-key-fn))))
 
 (defn find-by
   ([conn table row-key]
