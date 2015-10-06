@@ -16,6 +16,12 @@
 
 (comment
 
+(def conf {"hbase.zookeeper.quorum" "localhost:2181" "zookeeper.session.timeout" 30000})
+(def conn (new-connection conf))
+
+;; hbase(main):010:0* create_namespace 'galaxy';
+;; hbase(main):011:0* create 'galaxy:planet', 'galaxy';
+
 (def s (scan-filter {:family "galaxy"
                      :from 42 :to "47"
                      :time-range {:from-ms 123 :to-ms 890}}))

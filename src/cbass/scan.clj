@@ -10,6 +10,11 @@
 (defn- set-stop-row! [^Scan scanner prefix]
   (.setStopRow scanner (to-bytes prefix)))
 
+;; (!) ".setRowPrefixFilter" is only available since "hbase client 0.99.1"
+(defn- set-row-prefix! [^Scan scanner prefix]
+  (when prefix
+    (.setRowPrefixFilter scanner (to-bytes prefix))))
+
 (defn- set-time-range! [^Scan scanner [from to]]
   (let [f (or from 0)
         t (or to Long/MAX_VALUE)]
@@ -26,13 +31,14 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
-(defn scan-filter [{:keys [family columns from to time-range reverse?]}]
+(defn scan-filter [{:keys [family columns starts-with from to time-range reverse?]}]
   (let [scanner (Scan.)
         {:keys [from-ms to-ms]} time-range
         params [(if (and family (seq columns))
                   [add-columns [family columns]]
                   [add-family family])
                 [set-reverse! reverse?]
+                [set-row-prefix! starts-with]
                 [set-start-row! from]
                 [set-stop-row! to]
                 [set-time-range! (when (or from-ms to-ms) 
