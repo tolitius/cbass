@@ -196,7 +196,7 @@ user=> (scan conn "galaxy:planet")
 using `:starts-with`:
 
 ```clojure
-user=> (scan conn "galaxy:planet" :family "galaxy" :starts-with "sa")
+user=> (scan conn "galaxy:planet" :starts-with "sa")
 
 {"saturday" {:age "24 hours", :inhabited? :sometimes},
  "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
