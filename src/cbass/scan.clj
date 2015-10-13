@@ -34,14 +34,14 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
-(defn scan-filter [{:keys [family columns starts-with from to time-range reverse? limit]}]
+(defn scan-filter [{:keys [family columns starts-with from to time-range reverse? fetch-size]}]
   (let [scanner (Scan.)
         {:keys [from-ms to-ms]} time-range
         params [(if (and family (seq columns))
                   [add-columns [family columns]]
                   [add-family family])
                 [set-reverse! reverse?]
-                [set-caching! limit]
+                [set-caching! fetch-size]
                 [set-row-prefix! starts-with]
                 [set-start-row! from]
                 [set-stop-row! to]

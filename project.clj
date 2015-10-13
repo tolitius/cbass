@@ -7,9 +7,7 @@
   :source-paths ["src" "src/cbass"]
   :java-source-paths ["src/java"]
 
-  :dependencies [;; [org.apache.hbase/hbase-client "0.98.6-cdh5.2.1" :exclusions [com.google.guava/guava]]
-                 [org.apache.hbase/hbase-client "0.99.1" :exclusions [com.google.guava/guava]]
-                 [com.google.guava/guava "18.0"]
+  :dependencies [[org.apache.hbase/hbase-client "1.0.0"]
                  [com.taoensso/nippy "2.9.0"]
                  [org.clojure/clojure "1.7.0"]]
 
