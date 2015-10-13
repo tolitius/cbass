@@ -87,6 +87,22 @@
       (let [^Put h-data (map->hdata row-key family columns)]
         (.put h-table h-data)))))
 
+(defn empty-row-put [row-key family]
+  (let [^Put p (Put. (to-bytes row-key))]
+    (.add p (to-bytes family)
+          (byte-array 0) 
+          (byte-array 0))
+    p))
+
+(defn store-batch [conn table rows]
+  (with-open [^HTableInterface h-table (get-table conn table)]
+    (let [bulk (ArrayList. (for [[r f cs] rows] 
+                             (if cs
+                               (map->hdata r f cs)
+                               (empty-row-put r f))))]
+                              
+      (.put h-table bulk))))
+
 (defn delete
   ([conn table row-key]
    (delete conn table row-key nil nil))

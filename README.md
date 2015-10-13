@@ -22,6 +22,8 @@
 
 ## Storing data
 
+### Storing a single row
+
 ```clojure 
 ;; args:      conn, table, row key, family, data
 
@@ -35,6 +37,20 @@ Depending on a key strategy/structure sometimes it makes sense to only store row
 ```clojure
 user=> (store conn "galaxy:planet" "pluto" "galaxy")
 ```
+
+### Storing multiple rows
+
+In case there are multiple rows to store in the same table, `store-batch` can help out:
+
+```clojure
+(store-batch conn "galaxy:planet" 
+             [["mars" "galaxy" {:inhabited? true :population 3 :age "4.503 billion years"}]
+              ["earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"}]
+              ["pluto" "galaxy"]
+              ["neptune" "galaxy" {:inhabited? :unknown :age "4.503 billion years"}]]))
+```
+
+notice the "pluto", it has no columns, which is also fine.
 
 ## Finding it
 
@@ -259,6 +275,26 @@ user=> (scan conn "galaxy:planet" :reverse? true)
 {"neptune" {:age "4.503 billion years", :inhabited? :unknown},
  "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
  "earth" {:age "4.543 billion years", :inhabited? true, :population 7125000000}}
+```
+
+#### Scanning with the limit
+
+Since scanning partially gets its name from a "table scan", in many cases it may return quite large result sets. 
+Often we'd like to limit the number of rows returned, but HBase does not make it simple for [various reasons](http://www.dotkam.com/2015/10/08/hbase-scan-let-me-cache-it-for-you/).
+
+cbass makes it quite simple to limit the number of rows returned by using a `:limit` key:
+
+```clojure
+user=> (scan conn "galaxy:planet" :limit 2)
+
+{"earth" {:age "4.543 billion years", :inhabited? true, :population 7125000000},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3}}
+```
+
+For example to get the latest 3 planets added, we can scan in reverse (latest) with a limit of 3:
+
+```clojure
+user=> (scan conn "galaxy:planet" :limit 3 :reverse? true)
 ```
 
 #### Scanning by "anything"
