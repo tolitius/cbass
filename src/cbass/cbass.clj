@@ -1,10 +1,10 @@
 (ns cbass
   (:require [taoensso.nippy :as n]
             [cbass.scan :refer [scan-filter]]
-            [cbass.tools :refer [to-bytes thaw]])
+            [cbass.tools :refer [to-bytes thaw no-values]])
   (:import [java.util ArrayList]
            [org.apache.hadoop.hbase.util Bytes]
-           [org.apache.hadoop.hbase TableName HConstants]
+           [org.apache.hadoop.hbase TableName]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.hbase.client HConnection HConnectionManager HTableInterface Get Put Delete Scan Result]))
 
@@ -80,8 +80,8 @@
     (with-open [^HTableInterface h-table (get-table conn table)]
       (let [^Put p (Put. (to-bytes row-key))]
         (.put h-table (.add p (to-bytes family)   ;; in case there are no columns, just store row-key and family
-                              (byte-array 0) 
-                              (byte-array 0))))))
+                              no-values 
+                              no-values)))))
   ([conn table row-key family columns]
     (with-open [^HTableInterface h-table (get-table conn table)]
       (let [^Put h-data (map->hdata row-key family columns)]
@@ -90,8 +90,8 @@
 (defn empty-row-put [row-key family]
   (let [^Put p (Put. (to-bytes row-key))]
     (.add p (to-bytes family)
-          (byte-array 0) 
-          (byte-array 0))
+          no-values 
+          no-values)
     p))
 
 (defn store-batch [conn table rows]

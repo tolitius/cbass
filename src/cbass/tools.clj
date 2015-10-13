@@ -17,3 +17,6 @@
 (defn thaw [data]
   (when (seq data)
     (n/thaw data)))
+
+(defonce no-values
+  (byte-array 0))
