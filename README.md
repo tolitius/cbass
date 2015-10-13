@@ -1,3 +1,36 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [cbass](#cbass)
+  - [](#)
+  - [Show me](#show-me)
+  - [Connecting to HBase](#connecting-to-hbase)
+  - [Storing data](#storing-data)
+    - [Storing a single row](#storing-a-single-row)
+    - [Storing multiple rows](#storing-multiple-rows)
+  - [Finding it](#finding-it)
+    - [Finding by the row key](#finding-by-the-row-key)
+    - [Finding by "anything"](#finding-by-anything)
+      - [Scanning the whole table](#scanning-the-whole-table)
+      - [Scanning with a row key function](#scanning-with-a-row-key-function)
+      - [Scanning families and columns](#scanning-families-and-columns)
+      - [Scanning by row key prefix](#scanning-by-row-key-prefix)
+        - [:starts-with](#starts-with)
+      - [Scanning by time range](#scanning-by-time-range)
+      - [Scanning in reverse](#scanning-in-reverse)
+      - [Scanning with the limit](#scanning-with-the-limit)
+      - [Scanning by "anything"](#scanning-by-anything)
+  - [Deleting it](#deleting-it)
+      - [Deleting specific columns](#deleting-specific-columns)
+      - [Deleting a column family](#deleting-a-column-family)
+      - [Deleting a whole row](#deleting-a-whole-row)
+    - [Deleting by anything](#deleting-by-anything)
+    - [Delete row key function](#delete-row-key-function)
+  - [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # cbass
 
 * Databases are for storing and finding data 
