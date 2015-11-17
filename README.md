@@ -27,6 +27,7 @@
     - [Scanning by time range](#scanning-by-time-range)
     - [Scanning in reverse](#scanning-in-reverse)
     - [Scanning with the limit](#scanning-with-the-limit)
+    - [Scanning with filter](#scanning-with-filter)
     - [Scanning by "anything"](#scanning-by-anything)
 - [Deleting it](#deleting-it)
     - [Deleting specific columns](#deleting-specific-columns)
@@ -327,6 +328,55 @@ For example to get the latest 3 planets added, we can scan in reverse (latest) w
 
 ```clojure
 user=> (scan conn "galaxy:planet" :limit 3 :reverse? true)
+```
+
+#### Scanning with filter
+
+For a maximum flexibility an HBase [Filter](https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/filter/Filter.html) can be passed directly to `scan` via a `:filter` param.
+
+Here is an example of [ColumnPrefixFilter](https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/filter/ColumnPrefixFilter.html), all other HBase filters will work the same.
+
+The data we work with:
+
+```clojure
+user=> (scan conn "galaxy:planet")
+
+{"earth"
+ {:age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "pluto" {},
+ "saturday" {:age "24 hours", :inhabited? :sometimes},
+ "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
+```
+
+Creating a filter that would only look the rows where columns start with "ag", and scanning with it:
+
+```clojure
+user=> (def f (ColumnPrefixFilter. (.getBytes "ag")))
+#'user/f
+user=> (scan conn "galaxy:planet" :filter f)
+
+{"earth" {:age "4.543 billion years"},
+ "mars" {:age "4.503 billion years"},
+ "neptune" {:age "4.503 billion years"},
+ "saturday" {:age "24 hours"},
+ "saturn" {:age "4.503 billion years"}}
+
+```
+
+Similarly creating a filter that would only look the rows where columns start with "pop", and scanning with it:
+
+```clojure
+
+user=> (def f (ColumnPrefixFilter. (.getBytes "pop")))
+#'user/f
+user=> (scan conn "galaxy:planet" :filter f)
+
+{"earth" {:population 7125000000}, 
+ "mars" {:population 3}}
 ```
 
 #### Scanning by "anything"
