@@ -478,7 +478,11 @@ user=> (scan conn "table:name")
 
 HBase requires all data to be stored as bytes, i.e. byte arrays. Hence some serialization / deserialzation _defaults_ are good to have.
 
+### Defaults
+
 cbass uses a great [nippy](https://github.com/ptaoussanis/nippy) serialization library by default, but of course not everyone uses nippy, plus there are cases where the work needs to be on a pre existing dataset.
+
+### Plug it in
 
 Serialization in cbass is pluggable via `pack-up-pack` function that takes two functions, the one to pack and the one to unpack:
 
