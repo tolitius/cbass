@@ -34,6 +34,7 @@
     - [Deleting a whole row](#deleting-a-whole-row)
   - [Deleting by anything](#deleting-by-anything)
   - [Delete row key function](#delete-row-key-function)
+- [Serialization](#serialization)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -472,6 +473,24 @@ user=> (scan conn "table:name")
  "�d\k^|28768787578329|match" {...},
  "�d\k^|28768787578329|trade" {...}}
 ```
+
+## Serialization
+
+HBase requires all data to be stored as bytes, i.e. byte arrays. Hence some serialization / deserialzation _defaults_ are good to have.
+
+cbass uses a great [nippy](https://github.com/ptaoussanis/nippy) serialization library by default, but of course not everyone uses nippy, plus there are cases where the work needs to be on a pre existing dataset.
+
+Serialization in cbass is pluggable via `pack-up-pack` function that takes two functions, the one to pack and the one to unpack:
+
+```clojure
+(pack-un-pack {:p identity :u identity})
+```
+
+In the case above we are just muting packing unpacking relying on the custom serialization being done _prior_ to calling cbass, so the data is a byte array, and deserialization is done on the return value from cbass, since it will just return a byte array back in this case (i.e. `identity` for both).
+
+But of course any other pack/unpack fuctions can be provided to let cbass know how to serialize and deserialize.
+
+cbass keeps an internal state of pack/unpack functions, so `pack-un-pack` would usually be called just once when an application starts.
 
 ## License
 
