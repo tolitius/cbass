@@ -2,6 +2,7 @@
   (:require [cbass.tools :refer [to-bytes from-bytes]])
   (:import [org.apache.hadoop.hbase.util Bytes]
            [org.apache.hadoop.hbase TableName HConstants]
+           [org.apache.hadoop.hbase.filter Filter]
            [org.apache.hadoop.hbase.client HTableInterface Get Scan Result]))
 
 (defn- set-start-row! [^Scan scanner prefix]
@@ -20,6 +21,10 @@
         t (or to Long/MAX_VALUE)]
     (.setTimeRange scanner f t)))
 
+(defn set-filter! [^Scan scanner ^Filter f]
+  (when f
+    (.setFilter scanner f)))
+
 (defn- set-reverse! [^Scan scanner reverse?]
   (.setReversed scanner reverse?))
 
@@ -34,12 +39,13 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
-(defn scan-filter [{:keys [family columns starts-with from to time-range reverse? fetch-size]}]
+(defn scan-filter [{:keys [filter family columns starts-with from to time-range reverse? fetch-size]}]
   (let [scanner (Scan.)
         {:keys [from-ms to-ms]} time-range
         params [(if (and family (seq columns))
                   [add-columns [family columns]]
                   [add-family family])
+                [set-filter! filter]
                 [set-reverse! reverse?]
                 [set-caching! fetch-size]
                 [set-row-prefix! starts-with]
