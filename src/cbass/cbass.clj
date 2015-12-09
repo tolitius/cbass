@@ -30,11 +30,18 @@
 (defn result-value [rv] 
   (@unpack (val rv)))
 
+(defn latest-ts [^Result result]
+  (let [cells (.rawCells result)]
+    (->> (map #(.getTimestamp %) cells)
+         (apply max))))
+
 (defn hdata->map [^Result data]
   (when-let [r (.getRow data)]
-    (into {} (for [kv (-> (.getNoVersionMap data) vals first)] 
-               (if-some [v (result-value kv)]
-                 [(result-key kv) v])))))
+    (let [ts (latest-ts data)
+          results (for [kv (-> (.getNoVersionMap data) vals first)]
+                    (if-some [v (result-value kv)]
+                      [(result-key kv) v]))]
+      (into {:last-updated ts} results))))
 
 (defn map->hdata [row-key family columns]
   (let [^Put p (Put. (to-bytes row-key))
@@ -49,15 +56,23 @@
              [(row-key-fn (.getRow r)) 
               (hdata->map r)])))
 
-(defn scan [conn table & {:keys [row-key-fn limit] :as criteria}]
+(defn without-ts [results]
+  (into {}
+    (for [[k v] results]
+      [k (dissoc v :last-updated)])))
+
+(defn scan [conn table & {:keys [row-key-fn limit with-ts] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
-          row-key-fn (or row-key-fn #(String. %))]
-      (results->map (if-not limit
-                      results
-                      (take limit results))
-                    row-key-fn))))
+          row-key-fn (or row-key-fn #(String. %))
+          rmap (results->map (if-not limit
+                               results
+                               (take limit results))
+                             row-key-fn)]
+      (if with-ts 
+        rmap 
+        (without-ts rmap)))))
 
 (defn find-by
   ([conn table row-key]

@@ -28,6 +28,7 @@
     - [Scanning in reverse](#scanning-in-reverse)
     - [Scanning with the limit](#scanning-with-the-limit)
     - [Scanning with filter](#scanning-with-filter)
+    - [Scanning with the last updated](#scanning-with-the-last-updated)
     - [Scanning by "anything"](#scanning-by-anything)
 - [Deleting it](#deleting-it)
     - [Deleting specific columns](#deleting-specific-columns)
@@ -378,6 +379,92 @@ user=> (scan conn "galaxy:planet" :filter f)
 {"earth" {:population 7125000000}, 
  "mars" {:population 3}}
 ```
+
+#### Scanning with the last updated
+
+In order to get more intel on _when_ the results were updated last, you can add `:with-ts true` to scan.
+It will look at _all_ the cells in the result row, and will return the latest timestamp.
+
+```clojure
+user=> (scan conn "galaxy:planet")
+{"earth"
+ {:age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "mars" {:age "4.503 billion years", :inhabited? true, :population 3},
+ "neptune" {:age "4.503 billion years", :inhabited? :unknown},
+ "pluto" {:one 1, :three 3, :two 2},
+ "saturday" {:age "24 hours", :inhabited? :sometimes},
+ "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
+```
+
+and this is what the result of `:with-ts true` will look like:
+
+```clojure
+user=> (scan conn "galaxy:planet" :with-ts true)
+{"earth"
+ {:last-updated 1449681589719,
+  :age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "mars"
+ {:last-updated 1449681589719,
+  :age "4.503 billion years",
+  :inhabited? true,
+  :population 3},
+ "neptune"
+ {:last-updated 1449681589719,
+  :age "4.503 billion years",
+  :inhabited? :unknown},
+ "pluto" {:last-updated 1449681589719, :one 1, :three 3, :two 2},
+ "saturday"
+ {:last-updated 1449681589719,
+  :age "24 hours",
+  :inhabited? :sometimes},
+ "saturn"
+ {:last-updated 1449681589719,
+  :age "4.503 billion years",
+  :inhabited? :unknown}}
+```
+
+not exactly interesting, since all the rows were stored in batch at the same exact millisecond. Let's spice it up.
+
+Have you heard the latest news about life at Saturn? Let's record it:
+
+```clojure
+user=> (store conn "galaxy:planet" "saturn" "galaxy" {:inhabited? true})
+```
+
+and scan again:
+
+```clojure
+user=> (scan conn "galaxy:planet" :with-ts true)
+{"earth"
+ {:last-updated 1449681589719,
+  :age "4.543 billion years",
+  :inhabited? true,
+  :population 7125000000},
+ "mars"
+ {:last-updated 1449681589719,
+  :age "4.503 billion years",
+  :inhabited? true,
+  :population 3},
+ "neptune"
+ {:last-updated 1449681589719,
+  :age "4.503 billion years",
+  :inhabited? :unknown},
+ "pluto" {:last-updated 1449681589719, :one 1, :three 3, :two 2},
+ "saturday"
+ {:last-updated 1449681589719,
+  :age "24 hours",
+  :inhabited? :sometimes},
+ "saturn"
+ {:last-updated 1449682282217,
+  :age "4.503 billion years",
+  :inhabited? true}}
+```
+
+notice the Saturn's last update timestamp: it is now `1449682282217`.
 
 #### Scanning by "anything"
 
