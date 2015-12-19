@@ -51,28 +51,27 @@
         (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
-(defn results->map [results row-key-fn]
-  (into {} (for [r results] 
-             [(row-key-fn (.getRow r)) 
-              (hdata->map r)])))
+(defn results->maps [results row-key-fn]
+  (for [r results] 
+    [(row-key-fn (.getRow r)) 
+     (hdata->map r)]))
 
 (defn without-ts [results]
-  (into {}
-    (for [[k v] results]
-      [k (dissoc v :last-updated)])))
+  (for [[k v] results]
+    [k (dissoc v :last-updated)]))
 
-(defn scan [conn table & {:keys [row-key-fn limit with-ts] :as criteria}]
+(defn scan [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. %))
-          rmap (results->map (if-not limit
+          rmap (results->maps (if-not limit
                                results
                                (take limit results))
                              row-key-fn)]
-      (if with-ts 
-        rmap 
-        (without-ts rmap)))))
+      (cond->> rmap
+        (not with-ts?) (without-ts)
+        (not lazy?) (into {})))))
 
 (defn find-by
   ([conn table row-key]

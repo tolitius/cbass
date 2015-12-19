@@ -29,6 +29,7 @@
     - [Scanning with the limit](#scanning-with-the-limit)
     - [Scanning with filter](#scanning-with-filter)
     - [Scanning with the last updated](#scanning-with-the-last-updated)
+    - [Getting Lazy](#getting-lazy)
     - [Scanning by "anything"](#scanning-by-anything)
 - [Deleting it](#deleting-it)
     - [Deleting specific columns](#deleting-specific-columns)
@@ -382,7 +383,7 @@ user=> (scan conn "galaxy:planet" :filter f)
 
 #### Scanning with the last updated
 
-In order to get more intel on _when_ the results were updated last, you can add `:with-ts true` to scan.
+In order to get more intel on _when_ the results were updated last, you can add `:with-ts? true` to scan.
 It will look at _all_ the cells in the result row, and will return the latest timestamp.
 
 ```clojure
@@ -398,10 +399,10 @@ user=> (scan conn "galaxy:planet")
  "saturn" {:age "4.503 billion years", :inhabited? :unknown}}
 ```
 
-and this is what the result of `:with-ts true` will look like:
+and this is what the result of `:with-ts? true` will look like:
 
 ```clojure
-user=> (scan conn "galaxy:planet" :with-ts true)
+user=> (scan conn "galaxy:planet" :with-ts? true)
 {"earth"
  {:last-updated 1449681589719,
   :age "4.543 billion years",
@@ -438,7 +439,7 @@ user=> (store conn "galaxy:planet" "saturn" "galaxy" {:inhabited? true})
 and scan again:
 
 ```clojure
-user=> (scan conn "galaxy:planet" :with-ts true)
+user=> (scan conn "galaxy:planet" :with-ts? true)
 {"earth"
  {:last-updated 1449681589719,
   :age "4.543 billion years",
@@ -482,6 +483,39 @@ user=> (scan conn "galaxy:planet" :family "galaxy"
 ```
 
 There are lots of other ways to "scan the cat", but for now here are several.
+
+#### Getting Lazy
+
+By default `scan` will return a realized (not lazy) result as a map. In case too much data is expected to
+come back or the problem is best solved in batches, `scan` can be asked to return a lazy sequence of result 
+maps instead via a `:lazy? true` option:
+
+```clojure
+user=> (scan conn "galaxy:planet" :lazy? true)
+(["earth"
+  {:age "4.543 billion years",
+   :inhabited? true,
+   :population 7125000000}]
+ ["mars" {:age "4.503 billion years", :inhabited? true, :population 3}]
+ ["neptune" {:age "4.503 billion years", :inhabited? :unknown}]
+ ["pluto" {}]
+ ["saturday" {:age "24 hours", :inhabited? :sometimes}]
+ ["saturn" {:age "4.503 billion years", :inhabited? true}])
+```
+
+it is really a LazySeq:
+
+```clojure
+user=> (type (scan conn "galaxy:planet" :lazy? true))
+clojure.lang.LazySeq
+```
+
+whereas by default it is a map:
+
+```clojure
+user=> (type (scan conn "galaxy:planet"))
+clojure.lang.PersistentArrayMap
+```
 
 ## Deleting it
 
