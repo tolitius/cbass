@@ -24,10 +24,10 @@
 (defn get-table [^HConnection c ^String t-name]
   (.getTable c t-name))
 
-(defn result-key [rk] 
+(defn result-key [rk]
   (-> (String. (key rk)) keyword))
 
-(defn result-value [rv] 
+(defn result-value [rv]
   (@unpack (val rv)))
 
 (defn latest-ts [^Result result]
@@ -52,27 +52,43 @@
     p))
 
 (defn results->map [results row-key-fn]
-  (into {} (for [r results] 
-             [(row-key-fn (.getRow r)) 
+  (into {} (for [r results]
+             [(row-key-fn (.getRow r))
               (hdata->map r)])))
+
+(defn results->seq [results row-key-fn]
+  (for [r results]
+    [(row-key-fn (.getRow r))
+     (hdata->map r)]))
 
 (defn without-ts [results]
   (into {}
     (for [[k v] results]
       [k (dissoc v :last-updated)])))
 
-(defn scan [conn table & {:keys [row-key-fn limit with-ts] :as criteria}]
+(defn without-ts-seq [results]
+  (for [[k v] results]
+    [k (dissoc v :last-updated)]))
+
+(defn- scan-internal
+  [conn table results-fn without-ts-fn {:keys [row-key-fn limit with-ts] :as criteria}]
   (with-open [^HTableInterface h-table (get-table conn table)]
     (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. %))
-          rmap (results->map (if-not limit
-                               results
-                               (take limit results))
-                             row-key-fn)]
-      (if with-ts 
-        rmap 
-        (without-ts rmap)))))
+          rmap (results-fn (if-not limit
+                             results
+                             (take limit results))
+                           row-key-fn)]
+      (if with-ts
+        rmap
+        (without-ts-fn rmap)))))
+
+(defn scan [conn table & criteria]
+  (scan-internal conn table results->map without-ts criteria))
+
+(defn seq-scan [conn table & criteria]
+  (scan-internal conn table results->seq without-ts-seq criteria))
 
 (defn find-by
   ([conn table row-key]
@@ -84,18 +100,18 @@
       (let [^Get g (Get. (to-bytes row-key))]
         (when family
           (if columns
-            (doseq [c columns] 
+            (doseq [c columns]
               (.addColumn g (to-bytes family) (to-bytes (name c))))
             (.addFamily g (to-bytes family))))
         (-> (.get h-table g)
             hdata->map)))))
 
-(defn store 
+(defn store
   ([conn table row-key family]
     (with-open [^HTableInterface h-table (get-table conn table)]
       (let [^Put p (Put. (to-bytes row-key))]
         (.put h-table (.add p (to-bytes family)   ;; in case there are no columns, just store row-key and family
-                              no-values 
+                              no-values
                               no-values)))))
   ([conn table row-key family columns]
     (with-open [^HTableInterface h-table (get-table conn table)]
@@ -105,17 +121,17 @@
 (defn empty-row-put [row-key family]
   (let [^Put p (Put. (to-bytes row-key))]
     (.add p (to-bytes family)
-          no-values 
+          no-values
           no-values)
     p))
 
 (defn store-batch [conn table rows]
   (with-open [^HTableInterface h-table (get-table conn table)]
-    (let [bulk (ArrayList. (for [[r f cs] rows] 
+    (let [bulk (ArrayList. (for [[r f cs] rows]
                              (if cs
                                (map->hdata r f cs)
                                (empty-row-put r f))))]
-                              
+
       (.put h-table bulk))))
 
 (defn delete
@@ -128,7 +144,7 @@
       (let [^Delete d (Delete. (to-bytes row-key))]
         (when family
           (if columns
-            (doseq [c columns] 
+            (doseq [c columns]
               (.deleteColumns d (to-bytes family) (to-bytes (name c))))
             (.deleteFamily d (to-bytes family))))
         (.delete h-table d)))))
