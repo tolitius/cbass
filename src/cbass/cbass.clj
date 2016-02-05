@@ -24,10 +24,10 @@
 (defn get-table [^HConnection c ^String t-name]
   (.getTable c t-name))
 
-(defn result-key [rk] 
+(defn result-key [rk]
   (-> (String. (key rk)) keyword))
 
-(defn result-value [rv] 
+(defn result-value [rv]
   (@unpack (val rv)))
 
 (defn latest-ts [^Result result]
@@ -52,8 +52,8 @@
     p))
 
 (defn results->maps [results row-key-fn]
-  (for [r results] 
-    [(row-key-fn (.getRow r)) 
+  (for [r results]
+    [(row-key-fn (.getRow r))
      (hdata->map r)]))
 
 (defn without-ts [results]
@@ -83,18 +83,18 @@
       (let [^Get g (Get. (to-bytes row-key))]
         (when family
           (if columns
-            (doseq [c columns] 
+            (doseq [c columns]
               (.addColumn g (to-bytes family) (to-bytes (name c))))
             (.addFamily g (to-bytes family))))
         (-> (.get h-table g)
             hdata->map)))))
 
-(defn store 
+(defn store
   ([conn table row-key family]
     (with-open [^HTableInterface h-table (get-table conn table)]
       (let [^Put p (Put. (to-bytes row-key))]
         (.put h-table (.add p (to-bytes family)   ;; in case there are no columns, just store row-key and family
-                              no-values 
+                              no-values
                               no-values)))))
   ([conn table row-key family columns]
     (with-open [^HTableInterface h-table (get-table conn table)]
@@ -104,17 +104,17 @@
 (defn empty-row-put [row-key family]
   (let [^Put p (Put. (to-bytes row-key))]
     (.add p (to-bytes family)
-          no-values 
+          no-values
           no-values)
     p))
 
 (defn store-batch [conn table rows]
   (with-open [^HTableInterface h-table (get-table conn table)]
-    (let [bulk (ArrayList. (for [[r f cs] rows] 
+    (let [bulk (ArrayList. (for [[r f cs] rows]
                              (if cs
                                (map->hdata r f cs)
                                (empty-row-put r f))))]
-                              
+
       (.put h-table bulk))))
 
 (defn delete
@@ -127,13 +127,17 @@
       (let [^Delete d (Delete. (to-bytes row-key))]
         (when family
           (if columns
-            (doseq [c columns] 
+            (doseq [c columns]
               (.deleteColumns d (to-bytes family) (to-bytes (name c))))
             (.deleteFamily d (to-bytes family))))
         (.delete h-table d)))))
 
 (defn delete-by [conn table & by]
-  (let [row-keys (keys (apply scan conn table by))
+  "Delete by using scan's syntax for the selection criteria."
+  (let [row-keys (->>
+                  (conj by true :lazy?) ;; always fetch keys lazily to avoid OOM errors
+                  (apply scan conn table)
+                  (map first))
         delete-key-fn (:delete-key-fn (apply hash-map by))
         bulk (ArrayList. (map #(Delete. (if delete-key-fn
                                           (delete-key-fn %)
