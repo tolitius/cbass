@@ -13,6 +13,7 @@
 
 - [Show me](#show-me)
 - [Connecting to HBase](#connecting-to-hbase)
+  - [Custom Serializers](#custom-serializers)
 - [Storing data](#storing-data)
   - [Storing a single row](#storing-a-single-row)
   - [Storing multiple rows](#storing-multiple-rows)
@@ -38,6 +39,7 @@
   - [Deleting by anything](#deleting-by-anything)
   - [Delete row key function](#delete-row-key-function)
 - [Serialization](#serialization)
+  - [When Connecting](#when-connecting)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -54,6 +56,17 @@
 (def conf {"hbase.zookeeper.quorum" "127.0.0.1:2181" "zookeeper.session.timeout" 30000})
 (def conn (new-connection conf))
 ```
+
+### Custom Serializers
+
+By default `cbass` uses [nippy](https://github.com/ptaoussanis/nippy) for serialization / deserialization. There are more details about it in the [Serialization](#serialization) section. This can be changed by providing your own, optional, `pack` / `unpack` functions when creating an HBase connection:
+
+```clojure
+(def conn (new-connection conf :pack identity 
+                               :unpack identity))
+```
+
+In this example we are just _muting_ "packing" and "unpacking" relying on the custom serialization being done _prior_ to calling `cbass`, so the data is a byte array, and deserialization is done _after_ the value is returned from cbass, since it will just return a byte array back in this case (i.e. `identity` function for both).
 
 ## Storing data
 
@@ -666,6 +679,15 @@ In the case above we are just muting packing unpacking relying on the custom ser
 But of course any other pack/unpack fuctions can be provided to let cbass know how to serialize and deserialize.
 
 cbass keeps an internal state of pack/unpack functions, so `pack-un-pack` would usually be called just once when an application starts.
+
+### When Connecting
+
+While calling `pack-un-pack` works great, in the future, it would be better to specify serializers locally per connection. A `new-connection` function takes `pack` and `unpack` as optional arguments, and this would be a _prefered way_ to plug in serializers vs. `pack-un-pack`:
+
+```clojure
+(def conn (new-connection conf :pack identity 
+                               :unpack identity))
+```
 
 ## License
 
