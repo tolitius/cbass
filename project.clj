@@ -10,7 +10,7 @@
   :dependencies [[org.apache.hbase/hbase-client "1.1.1"]
                  [aesahaettr "0.1.2" :exclusions [com.google.guava/guava]]
                  [com.taoensso/nippy "2.9.0"]
-                 [org.clojure/clojure "1.7.0"]]
+                 [org.clojure/clojure "1.8.0"]]
 
   :repositories {"cloudera"
                  {:url "https://repository.cloudera.com/artifactory/cloudera-repos"}})
