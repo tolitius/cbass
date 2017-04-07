@@ -4,7 +4,8 @@
 * HBase is great at that
 * Clojure is great at "simple"
 
---
+---
+
 [![Clojars Project](http://clojars.org/cbass/latest-version.svg)](http://clojars.org/cbass)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
