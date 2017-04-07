@@ -692,7 +692,7 @@ While calling `pack-un-pack` works great, in the future, it would be better to s
 
 ## License
 
-Copyright © 2015 tolitius
+Copyright © 2017 tolitius
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
