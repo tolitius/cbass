@@ -3,7 +3,7 @@
   (:import [org.apache.hadoop.hbase.util Bytes]
            [org.apache.hadoop.hbase TableName HConstants]
            [org.apache.hadoop.hbase.filter Filter]
-           [org.apache.hadoop.hbase.client HTableInterface Get Scan Result]))
+           [org.apache.hadoop.hbase.client Table Get Scan Result]))
 
 (defn- set-start-row! [^Scan scanner prefix]
   (.setStartRow scanner (to-bytes prefix)))
