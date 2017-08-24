@@ -3,7 +3,8 @@
             [æsahættr :refer [hash-object hash-bytes murmur3-32 murmur3-128]])
   (:import [org.apache.hadoop.hbase.util Bytes]
            [java.time Instant ZoneId ZonedDateTime ZoneOffset Duration]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           (com.google.common.hash HashCode)))
 
 (defmacro bytes? [s]
   `(= (Class/forName "[B")
@@ -30,8 +31,8 @@
        str))
 
 (defn hash-key [#^bytes k-bytes]
-  (.asBytes (hash-bytes (murmur3-32)
-                        k-bytes)))
+  (.asBytes ^HashCode (hash-bytes (murmur3-32)
+                                  k-bytes)))
 
 (defn current-utc-millis []
   (-> (ZoneOffset/UTC)
@@ -41,7 +42,7 @@
 
 (defn parse-long [ts]
   (try
-    (Long/valueOf ts)
+    (Long/valueOf ^String ts)
     (catch Throwable t
       (prn "could not parse " ts " to a Long due to " (class t) ": " (.getMessage t)))))
 

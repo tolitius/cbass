@@ -2,9 +2,9 @@
   (:require [taoensso.nippy :as n]
             [cbass.scan :refer [scan-filter]]
             [cbass.tools :refer [to-bytes thaw no-values]])
-  (:import [java.util ArrayList]
+  (:import [java.util ArrayList Collection List]
            [org.apache.hadoop.hbase.util Bytes]
-           [org.apache.hadoop.hbase TableName]
+           [org.apache.hadoop.hbase TableName Cell]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.hbase.client Connection ConnectionFactory Table Get Put Delete Scan Result]))
 
@@ -22,18 +22,18 @@
     (pack-un-pack {:p pack :u unpack})
     (ConnectionFactory/createConnection configuration)))
 
-(defn get-table [^Connection c ^String t-name]
+(defn ^Table get-table [^Connection c ^String t-name]
   (.getTable c (TableName/valueOf t-name)))
 
 (defn result-key [rk]
-  (-> (String. (key rk)) keyword))
+  (-> (String. ^bytes (key rk)) keyword))
 
 (defn result-value [rv]
   (@unpack (val rv)))
 
 (defn latest-ts [^Result result]
   (let [cells (.rawCells result)]
-    (->> (map #(.getTimestamp %) cells)
+    (->> (map #(.getTimestamp ^Cell %) cells)
          (apply max))))
 
 (defn hdata->map [^Result data]
@@ -45,15 +45,15 @@
       (into {:last-updated ts} results))))
 
 (defn map->hdata [row-key family columns]
-  (let [^Put p (Put. (to-bytes row-key))
-        f-bytes (to-bytes family)]
+  (let [^Put p (Put. ^bytes (to-bytes ^String row-key))
+        ^bytes f-bytes (to-bytes ^String family)]
     (doseq [[k v] columns]
       (when-let [v-bytes (@pack v)]
         (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
 (defn results->maps [results row-key-fn]
-  (for [r results]
+  (for [^Result r results]
     [(row-key-fn (.getRow r))
      (hdata->map r)]))
 
@@ -63,9 +63,9 @@
 
 (defn scan [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
   (with-open [^Table h-table (get-table conn table)]
-    (let [results (-> (.iterator (.getScanner h-table (scan-filter criteria)))
+    (let [results (-> (.iterator (.getScanner h-table ^Scan (scan-filter criteria)))
                       iterator-seq)
-          row-key-fn (or row-key-fn #(String. %))
+          row-key-fn (or row-key-fn #(String. ^bytes %))
           rmap (results->maps (if-not limit
                                results
                                (take limit results))
@@ -81,20 +81,20 @@
    (find-by conn table row-key family nil))
   ([conn table row-key family columns]
     (with-open [^Table h-table (get-table conn table)]
-      (let [^Get g (Get. (to-bytes row-key))]
+      (let [^Get g (Get. ^bytes (to-bytes ^String row-key))]
         (when family
           (if columns
             (doseq [c columns]
-              (.addColumn g (to-bytes family) (to-bytes (name c))))
-            (.addFamily g (to-bytes family))))
+              (.addColumn g (to-bytes ^String family) (to-bytes (name c))))
+            (.addFamily g (to-bytes ^String family))))
         (-> (.get h-table g)
             hdata->map)))))
 
 (defn store
   ([conn table row-key family]
     (with-open [^Table h-table (get-table conn table)]
-      (let [^Put p (Put. (to-bytes row-key))]
-        (.put h-table (.add p (to-bytes family)   ;; in case there are no columns, just store row-key and family
+      (let [^Put p (Put. ^bytes (to-bytes ^String row-key))]
+        (.put h-table (.add p (to-bytes  ^String family)   ;; in case there are no columns, just store row-key and family
                               no-values
                               no-values)))))
   ([conn table row-key family columns]
@@ -103,20 +103,20 @@
         (.put h-table h-data)))))
 
 (defn empty-row-put [row-key family]
-  (let [^Put p (Put. (to-bytes row-key))]
-    (.add p (to-bytes family)
+  (let [^Put p (Put. ^bytes (to-bytes ^String row-key))]
+    (.add p (to-bytes ^String family)
           no-values
           no-values)
     p))
 
 (defn store-batch [conn table rows]
   (with-open [^Table h-table (get-table conn table)]
-    (let [bulk (ArrayList. (for [[r f cs] rows]
+    (let [bulk (doall (for [[r f cs] rows]
                              (if cs
                                (map->hdata r f cs)
                                (empty-row-put r f))))]
 
-      (.put h-table bulk))))
+      (.put h-table ^List bulk))))
 
 (defn delete
   ([conn table row-key]
@@ -125,12 +125,12 @@
    (delete conn table row-key family nil))
   ([conn table row-key family columns]
     (with-open [^Table h-table (get-table conn table)]
-      (let [^Delete d (Delete. (to-bytes row-key))]
+      (let [^Delete d (Delete. ^bytes (to-bytes ^String row-key))]
         (when family
           (if columns
             (doseq [c columns]
-              (.deleteColumns d (to-bytes family) (to-bytes (name c))))
-            (.deleteFamily d (to-bytes family))))
+              (.deleteColumns d (to-bytes ^String family) (to-bytes (name c))))
+            (.deleteFamily d (to-bytes ^String family))))
         (.delete h-table d)))))
 
 (defn delete-by [conn table & by]
@@ -140,9 +140,9 @@
                   (apply scan conn table)
                   (map first))
         delete-key-fn (:delete-key-fn (apply hash-map by))
-        bulk (ArrayList. (map #(Delete. (if delete-key-fn
+        bulk (ArrayList. ^Collection (map #(Delete. ^bytes (if delete-key-fn
                                           (delete-key-fn %)
-                                          (to-bytes %))) row-keys))]
+                                          (to-bytes ^String %))) row-keys))]
     (when (seq row-keys)
       (with-open [^Table h-table (get-table conn table)]
-        (.delete h-table bulk)))))
+        (.delete h-table ^ArrayList bulk)))))
