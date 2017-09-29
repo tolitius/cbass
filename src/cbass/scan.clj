@@ -5,14 +5,14 @@
            [org.apache.hadoop.hbase.filter Filter]
            [org.apache.hadoop.hbase.client Table Get Scan Result]))
 
-(defn- set-start-row! [^Scan scanner prefix]
+(defn- set-start-row! [^Scan scanner ^String prefix]
   (.setStartRow scanner (to-bytes prefix)))
 
-(defn- set-stop-row! [^Scan scanner prefix]
+(defn- set-stop-row! [^Scan scanner ^String prefix]
   (.setStopRow scanner (to-bytes prefix)))
 
 ;; (!) ".setRowPrefixFilter" is only available since "hbase client 0.99.1"
-(defn- set-row-prefix! [^Scan scanner prefix]
+(defn- set-row-prefix! [^Scan scanner ^String prefix]
   (when prefix
     (.setRowPrefixFilter scanner (to-bytes prefix))))
 
@@ -31,11 +31,11 @@
 (defn- set-caching! [^Scan scanner limit]
   (.setCaching scanner limit))
 
-(defn- add-family [^Scan scanner family]
+(defn- add-family [^Scan scanner ^String  family]
   (.addFamily scanner (to-bytes family)))
 
-(defn- add-columns [^Scan scanner [family columns]]
-  (doseq [c columns]
+(defn- add-columns [^Scan scanner [^String family columns]]
+  (doseq [^String c columns]
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
