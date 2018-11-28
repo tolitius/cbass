@@ -1,9 +1,37 @@
 (ns cbass.mutate
   "Helper methods to allow for mutations https://hbase.apache.org/1.2/apidocs/org/apache/hadoop/hbase/client/Mutation.html
-  Right now it only supports increment."
+  Right now it only supports increment.
+
+  Supports basic table operations or a BufferedMutator for async use.
+  "
   (:require [cbass.tools :refer [to-bytes]]
             [cbass :as cbass])
-  (:import [org.apache.hadoop.hbase.client Table Increment]))
+  (:import [org.apache.hadoop.hbase.client Table Increment BufferedMutatorParams BufferedMutator$ExceptionListener Connection BufferedMutator]
+           (org.apache.hadoop.hbase TableName)))
+
+; I would consider the buffered mutator api to be "experimental". I threw it together as a patch
+; to allow very fast throughput (> 2K/sec). It's asynchronous and we're not handling responses but
+; if you want to essentially stream increments into hbase, it works. That said, the configuration
+; probably needs tweaking.
+;
+; There's no need to use the buffered mutator for simple mutations.
+; You can just use the increment or increment-batch functions on a table
+
+(defn ^BufferedMutator get-buffered-mutator
+  "Create a buffered mutator for the given table."
+  [^Connection conn table-name]
+  (as-> (BufferedMutatorParams. (TableName/valueOf ^String table-name)) ^BufferedMutatorParams params
+        (.listener params (proxy [BufferedMutator$ExceptionListener] []
+                            (onException [exception mutator]
+                              (throw exception))))
+        (.writeBufferSize params (long 10000000))
+        (.getBufferedMutator conn params)))
+
+(defn mutate [mutator mutations]
+  (.mutate mutator mutations))
+
+(defn flush-mutator [mutator]
+  (.flush mutator))
 
 (defn ^Increment get-increment-op
   "This method creates insert mutation calls for hbase.
@@ -24,7 +52,7 @@
      i)))
 
 (defn increment
-  "A single increment operation"
+  "Perform a single increment operation."
   ([conn table row-key family column amount]
    (increment conn table row-key family [[column amount]]))
   ([conn table row-key family columns_and_amounts]
