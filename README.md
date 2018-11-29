@@ -101,6 +101,36 @@ In case there are multiple rows to store in the same table, `store-batch` can he
 
 notice the "pluto", it has no columns, which is also fine.
 
+### Using increment mutations
+
+HBase offers counters in the form of the mutation API. One caveat is that the data isn't serialized with nippy so we have to 
+manage deserialization ourselves. 
+
+```clojure
+=> (cbass/pack-un-pack {:p #(cbass.tools/to-bytes %) :u identity})
+=> (use '[cbass.mutate :refer [increment]])
+nil
+=> (increment conn "galaxy:planet" "mars" "galaxy" :landers 7)
+=>
+#object[org.apache.hadoop.hbase.client.Result
+        0x7017e957
+        "keyvalues={mars/galaxy:landers/1543441160950/Put/vlen=8/seqid=0}"
+(find-by conn "galaxy:planet" "mars" "galaxy")
+=>
+{:last-updated 1543441160950,
+ :age #object["[B" 0x2207b2e6 "[B@2207b2e6"],
+ :inhabited? #object["[B" 0x618e78f7 "[B@618e78f7"],
+ :landers #object["[B" 0xd63e8e6 "[B@d63e8e6"],
+ :population #object["[B" 0x644599bb "[B@644599bb"]}
+ 
+(cbass.tools/bytes->num (:landers (find-by conn "galaxy:planet" "mars" "galaxy")))
+=> 7
+```
+
+There's support for batch processing of increments as well as for using the 
+async BufferedMutator for high throughput. See the source for more info.
+
+
 ## Finding it
 
 There are two primary ways data is found in HBase:

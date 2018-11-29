@@ -18,6 +18,17 @@
 (defmacro from-bytes [s]
  `(Bytes/fromBytes ~s))
 
+
+(defn bytes->num
+  "Convert byte array to a number"
+  [data]
+  (BigInteger. data))
+
+(defn bytes->str
+  "Convert byte array to a string"
+  [data]
+  (apply str (map char data)))
+
 (defn thaw [data]
   (when (seq data)
     (n/thaw data)))
