@@ -1,4 +1,4 @@
-(defproject cbass "0.2.3-SNAPSHOT"
+(defproject cbass "0.2.4-SNAPSHOT"
   :description "adding simple to HBase"
   :url "https://github.com/tolitius/cbass"
   :license {:name "Eclipse Public License"
