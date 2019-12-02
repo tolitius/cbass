@@ -3,10 +3,11 @@
             [cbass :refer :all]))
 
 (defn connect []
-  (new-connection {"hbase.zookeeper.quorum"
-                   "localhost:2181"
-                   "zookeeper.session.timeout"
-                   30000}))
+  ; for an integration test ... (new-connection {...}))
+  {"hbase.zookeeper.quorum"
+   "localhost:2181"
+   "zookeeper.session.timeout"
+   30000})
 
 (defn create-solar [conn]
   (store-batch conn "galaxy:planet"
@@ -20,7 +21,9 @@
 (deftest test-delete-by-lazy
   (with-redefs [scan (fn [_ _ & {:keys [lazy?] :as by}]
                        (when-not lazy? (is false "Scan is not lazy"))
-                       {})]
+                       {})
+                with-open (fn [])
+                get-table (fn [])]
     (is (nil? (delete-by (connect) "galaxy:planet")))
     (is (nil? (delete-by (connect) "galaxy:planet" :filter nil)))))
 
