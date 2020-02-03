@@ -62,8 +62,9 @@
     [k (dissoc v :last-updated)]))
 
 (defn scan [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
-  (with-open [^Table h-table (get-table conn table)]
-    (let [results (-> (.iterator (.getScanner h-table ^Scan (scan-filter criteria)))
+  (with-open [^Table h-table (get-table conn table)
+              scanner (.getScanner h-table ^Scan (scan-filter criteria))]
+    (let [results (-> (.iterator scanner)
                       iterator-seq)
           row-key-fn (or row-key-fn #(String. ^bytes %))
           rmap (results->maps (if-not limit
