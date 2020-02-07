@@ -62,18 +62,19 @@
     [k (dissoc v :last-updated)]))
 
 (defn scan [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
-  (with-open [^Table h-table (get-table conn table)
-              scanner (.getScanner h-table ^Scan (scan-filter criteria))]
-    (let [results (-> (.iterator scanner)
-                      iterator-seq)
-          row-key-fn (or row-key-fn #(String. ^bytes %))
-          rmap (results->maps (if-not limit
-                               results
-                               (take limit results))
-                             row-key-fn)]
-      (cond->> rmap
-        (not with-ts?) (without-ts)
-        (not lazy?) (into {})))))
+  (let [scan ^Scan (scan-filter criteria)]
+    (when limit
+      (.setLimit scan limit))
+    (with-open [^Table h-table (get-table conn table)
+                scanner (.getScanner h-table scan)]
+      (let [results (-> (.iterator scanner)
+                        iterator-seq)
+            row-key-fn (or row-key-fn #(String. ^bytes %))
+            rmap (results->maps results
+                                row-key-fn)]
+        (cond->> rmap
+                 (not with-ts?) (without-ts)
+                 (not lazy?) (into {}))))))
 
 (defn find-by
   ([conn table row-key]
