@@ -6,7 +6,7 @@
            [org.apache.hadoop.hbase.util Bytes]
            [org.apache.hadoop.hbase TableName Cell]
            [org.apache.hadoop.conf Configuration]
-           [org.apache.hadoop.hbase.client Connection ConnectionFactory Table Get Put Delete Scan Result]))
+           [org.apache.hadoop.hbase.client Connection ConnectionFactory Table Get Put Delete Scan Result ResultScanner]))
 
 (def pack (atom n/freeze))
 (def unpack (atom thaw))
