@@ -76,6 +76,32 @@
                  (not with-ts?) (without-ts)
                  (not lazy?) (into {}))))))
 
+(defn lazy-scan
+  "
+  Scan rows. Return a map with:
+
+  - table: the table object
+  - scanner: the scanner object
+  - rows: A lazy sequence with the rows
+
+  IMPORTANT: It's the responsibility of the caller to close table and scanner."
+  [conn table & {:keys [row-key-fn limit with-ts?] :as criteria}]
+  (let [scan ^Scan (scan-filter criteria)]
+    (when limit
+      (.setLimit scan limit))
+    (let [^Table h-table         (get-table conn table)
+          ^ResultScanner scanner (.getScanner h-table scan)
+          results                (-> (.iterator scanner)
+                                     iterator-seq)
+          row-key-fn             (or row-key-fn #(String. ^bytes %))
+          rmap                   (results->maps results
+                                                row-key-fn)]
+
+      {:table   h-table
+       :scanner scanner
+       :rows    (cond->> rmap
+                  (not with-ts?) (without-ts))})))
+
 (defn find-by
   ([conn table row-key]
    (find-by conn table row-key nil nil))
