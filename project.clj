@@ -11,6 +11,5 @@
                  [aesahaettr "0.1.2"]
                  [com.taoensso/nippy "2.15.3"]]
   :global-vars {*warn-on-reflection* true}
-  :aot :all
   :repositories {"cloudera"
                  {:url "https://repository.cloudera.com/artifactory/cloudera-repos"}})
