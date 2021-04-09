@@ -52,16 +52,28 @@
         (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
-(defn results->maps [results row-key-fn]
+(defn results->maps [results row-key-fn {:keys [keys-only?]}]
   (for [^Result r results]
     [(row-key-fn (.getRow r))
-     (hdata->map r)]))
+     (if keys-only?
+       {}
+       (hdata->map r))]))
 
 (defn without-ts [results]
   (for [[k v] results]
     [k (dissoc v :last-updated)]))
 
-(defn scan [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
+(defn scan
+  "Supported keys in criteria:
+  - row-key-fn
+  - limit
+  - with-ts?
+  - keys-only?
+  - from
+  - to
+  - starts-with
+  "
+  [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
   (let [scan ^Scan (scan-filter criteria)]
     (when limit
       (.setLimit scan limit))
@@ -71,7 +83,8 @@
                         iterator-seq)
             row-key-fn (or row-key-fn #(String. ^bytes %))
             rmap (results->maps results
-                                row-key-fn)]
+                                row-key-fn
+                                criteria)]
         (cond->> rmap
                  (not with-ts?) (without-ts)
                  (not lazy?) (into {}))))))
@@ -84,7 +97,16 @@
   - scanner: the scanner object
   - rows: A lazy sequence with the rows
 
-  IMPORTANT: It's the responsibility of the caller to close table and scanner."
+  IMPORTANT: It's the responsibility of the caller to close table and scanner.
+  Supported keys in criteria:
+  - row-key-fn
+  - limit
+  - with-ts?
+  - keys-only?
+  - from
+  - to
+  - starts-with
+  "
   [conn table & {:keys [row-key-fn limit with-ts?] :as criteria}]
   (let [scan ^Scan (scan-filter criteria)]
     (when limit
@@ -95,7 +117,8 @@
                                      iterator-seq)
           row-key-fn             (or row-key-fn #(String. ^bytes %))
           rmap                   (results->maps results
-                                                row-key-fn)]
+                                                row-key-fn
+                                                criteria)]
 
       {:table   h-table
        :scanner scanner
@@ -161,16 +184,16 @@
             (.deleteFamily d (to-bytes ^String family))))
         (.delete h-table d)))))
 
-(defn delete-by [conn table & by]
+(defn delete-by
   "Delete by using scan's syntax for the selection criteria."
-  (let [row-keys (->>
-                  (conj by true :lazy?) ;; always fetch keys lazily to avoid OOM errors
-                  (apply scan conn table)
-                  (map first))
-        delete-key-fn (:delete-key-fn (apply hash-map by))
-        bulk (ArrayList. ^Collection (map #(Delete. ^bytes (if delete-key-fn
-                                          (delete-key-fn %)
-                                          (to-bytes ^String %))) row-keys))]
-    (when (seq row-keys)
-      (with-open [^Table h-table (get-table conn table)]
-        (.delete h-table ^ArrayList bulk)))))
+  [conn table & by]
+  (let [my-scan (->> (conj by true :keys-only?)
+                     ;; fetch keys lazily to avoid OOM errors
+                     (apply lazy-scan conn table))]
+    (with-open [^Table h-table          (:table my-scan)
+                ^ResultScanner _scanner (:scanner my-scan)]
+      (when-let [row-keys (seq (map first (:rows my-scan)))]
+        (let [{:keys [delete-key-fn]
+               :or   {delete-key-fn #(to-bytes %)}} (apply hash-map by)
+              bulk                                  (ArrayList. ^Collection (map #(Delete. ^bytes (delete-key-fn %)) row-keys))]
+          (.delete h-table ^ArrayList bulk))))))
