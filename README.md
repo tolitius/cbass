@@ -482,6 +482,17 @@ user=> (scan conn "galaxy:planet" :with-ts? true)
 
 notice the Saturn's last update timestamp: it is now `1449682282217`.
 
+#### Get only the row keys
+In some cases, we need only to find the row keys without the associated data.
+In that case, you pass `:keys-only? true` to `scan`.
+```clojure
+user=> (scan conn "galaxy:planet" :from "ea" 
+                                  :to "ma"
+                                  :keys-only? true)
+
+{"earth" {}}
+```
+
 #### Scanning by "anything"
 
 Of course _all_ of the above can be combined together, and that's the beauty or scanners:
@@ -503,11 +514,15 @@ There are lots of other ways to "scan the cat", but for now here are several.
 
 By default `scan` will return a realized (not lazy) result as a map. In case too much data is expected to
 come back or the problem is best solved in batches, `scan` can be asked to return a lazy sequence of result 
-maps instead via a `:lazy? true` option:
+maps instead by calling `lazy-scan`.
+
+IMPORTANT: It's the responsibility of the caller to close table and scanner.
 
 ```clojure
-user=> (scan conn "galaxy:planet" :lazy? true)
-(["earth"
+user=> (lazy-scan conn "galaxy:planet")
+{:table <table>
+ :scanner <scanner>
+ :rows (["earth"
   {:age "4.543 billion years",
    :inhabited? true,
    :population 7125000000}]
@@ -515,13 +530,13 @@ user=> (scan conn "galaxy:planet" :lazy? true)
  ["neptune" {:age "4.503 billion years", :inhabited? :unknown}]
  ["pluto" {}]
  ["saturday" {:age "24 hours", :inhabited? :sometimes}]
- ["saturn" {:age "4.503 billion years", :inhabited? true}])
+ ["saturn" {:age "4.503 billion years", :inhabited? true}])}
 ```
 
 it is really a LazySeq:
 
 ```clojure
-user=> (type (scan conn "galaxy:planet" :lazy? true))
+user=> (type (:rows (scan conn "galaxy:planet" :lazy? true)))_
 clojure.lang.LazySeq
 ```
 
