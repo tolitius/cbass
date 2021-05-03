@@ -75,7 +75,7 @@ In this example we are just _muting_ "packing" and "unpacking" relying on the cu
 ### Storing a single row
 
 ```clojure 
-;; args:      conn, table, row key, family, data
+;; args:      conn, table, row key, family, data, [timestamp]
 
 user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true 
                                                      :population 7125000000 
@@ -87,6 +87,16 @@ Depending on a key strategy/structure sometimes it makes sense to only store row
 ```clojure
 user=> (store conn "galaxy:planet" "pluto" "galaxy")
 ```
+
+It is possible to pass a custom timestamp to hbase:
+
+```clojure 
+user=> (store conn "galaxy:planet" "earth" "galaxy" {:inhabited? true 
+                                                     :population 7125000000 
+                                                     :age "4.543 billion years"}
+                                                     1000)
+```
+
 
 ### Storing multiple rows
 
@@ -102,6 +112,17 @@ In case there are multiple rows to store in the same table, `store-batch` can he
 
 notice the "pluto", it has no columns, which is also fine.
 
+You can pass a custom timestamp on each row:
+
+```clojure
+(store-batch conn "galaxy:planet" 
+             [["mars" "galaxy" {:inhabited? true :population 3 :age "4.503 billion years"} 1000]
+              ["earth" "galaxy" {:inhabited? true :population 7125000000 :age "4.543 billion years"} 2000]
+              ["pluto" "galaxy" nil 3000]
+              ["neptune" "galaxy" {:inhabited? :unknown :age "4.503 billion years"} 4000]]))
+```
+
+
 ## Finding it
 
 There are two primary ways data is found in HBase:
@@ -112,7 +133,7 @@ There are two primary ways data is found in HBase:
 ### Finding by the row key
 
 ```clojure
-;; args:        conn, table, row key, [family, columns]
+;; args:        conn, table, row key, [family, columns, [time-range]]
 
 user=> (find-by conn "galaxy:planet" "earth")
 {:age "4.543 billion years", :inhabited? true, :population 7125000000}
@@ -143,6 +164,20 @@ ROW         COLUMN+CELL
  neptune    column=galaxy:inhabited?, timestamp=1440880036629, value=NPY\x00j\x07unknown
 3 row(s) in 0.0230 seconds
 ```
+
+### Finding a specific version of a row
+
+By default, `find-by` returns the latest version of a row. If you want to retrieve an earlier version of the cell, you need to pass a `:time-range` to `find-by`:
+
+```clojure
+user=> (store conn "galaxy:planet" "earth" "galaxy" {:population 3} 1000)
+user=> (store conn "galaxy:planet" "earth" "galaxy" {:population 7125000000} 2000)
+
+user=> (find-by conn "galaxy:planet" "earth" #{:population} :time-range {:from-ms 500 :to-ms 1500})
+{:last-updated 1000, :population 3}
+```
+
+
 
 HBase scanning is pretty flexible: by row key from/to prefixes, by time ranges, by families/columns, etc..
 
@@ -481,6 +516,7 @@ user=> (scan conn "galaxy:planet" :with-ts? true)
 ```
 
 notice the Saturn's last update timestamp: it is now `1449682282217`.
+
 
 #### Get only the row keys
 In some cases, we need only to find the row keys without the associated data.

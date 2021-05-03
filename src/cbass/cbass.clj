@@ -44,8 +44,10 @@
                       [(result-key kv) v]))]
       (into {:last-updated ts} results))))
 
-(defn map->hdata [row-key family columns]
-  (let [^Put p (Put. ^bytes (to-bytes ^String row-key))
+(defn map->hdata [row-key family columns timestamp]
+  (let [^Put p (if timestamp
+                 (Put. ^bytes (to-bytes ^String row-key) timestamp)
+                 (Put. ^bytes (to-bytes ^String row-key)))
         ^bytes f-bytes (to-bytes ^String family)]
     (doseq [[k v] columns]
       (when-let [v-bytes (@pack v)]
@@ -125,21 +127,30 @@
        :rows    (cond->> rmap
                   (not with-ts?) (without-ts))})))
 
+(defn- set-time-range! [^Get get {:keys [from-ms to-ms]
+                                  :or {from-ms 0
+                                       to-ms Long/MAX_VALUE}}]
+  (.setTimeRange get from-ms to-ms))
+
 (defn find-by
   ([conn table row-key]
    (find-by conn table row-key nil nil))
   ([conn table row-key family]
    (find-by conn table row-key family nil))
   ([conn table row-key family columns]
-    (with-open [^Table h-table (get-table conn table)]
-      (let [^Get g (Get. ^bytes (to-bytes ^String row-key))]
-        (when family
-          (if columns
-            (doseq [c columns]
-              (.addColumn g (to-bytes ^String family) (to-bytes (name c))))
-            (.addFamily g (to-bytes ^String family))))
-        (-> (.get h-table g)
-            hdata->map)))))
+   (find-by conn table row-key family columns nil))
+  ([conn table row-key family columns & {:keys [time-range]}]
+   (with-open [^Table h-table (get-table conn table)]
+     (let [^Get g (Get. ^bytes (to-bytes ^String row-key))]
+       (when time-range
+         (set-time-range! g time-range))
+       (when family
+         (if columns
+           (doseq [c columns]
+             (.addColumn g (to-bytes ^String family) (to-bytes (name c))))
+           (.addFamily g (to-bytes ^String family))))
+       (-> (.get h-table g)
+           hdata->map)))))
 
 (defn store
   ([conn table row-key family]
@@ -149,9 +160,11 @@
                               no-values
                               no-values)))))
   ([conn table row-key family columns]
-    (with-open [^Table h-table (get-table conn table)]
-      (let [^Put h-data (map->hdata row-key family columns)]
-        (.put h-table h-data)))))
+   (store conn table row-key family columns nil))
+  ([conn table row-key family columns timestamp]
+   (with-open [^Table h-table (get-table conn table)]
+     (let [^Put h-data (map->hdata row-key family columns timestamp)]
+       (.put h-table h-data)))))
 
 (defn empty-row-put [row-key family]
   (let [^Put p (Put. ^bytes (to-bytes ^String row-key))]
@@ -162,10 +175,10 @@
 
 (defn store-batch [conn table rows]
   (with-open [^Table h-table (get-table conn table)]
-    (let [bulk (doall (for [[r f cs] rows]
-                             (if cs
-                               (map->hdata r f cs)
-                               (empty-row-put r f))))]
+    (let [bulk (doall (for [[r f cs ts] rows]
+                        (if cs
+                          (map->hdata r f cs ts)
+                          (empty-row-put r f))))]
 
       (.put h-table ^List bulk))))
 
