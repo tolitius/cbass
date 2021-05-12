@@ -58,7 +58,7 @@
   (for [^Result r results]
     [(row-key-fn (.getRow r))
      (if keys-only?
-       {}
+       {:last-updated (latest-ts r)}
        (hdata->map r))]))
 
 (defn without-ts [results]
