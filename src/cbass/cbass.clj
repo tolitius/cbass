@@ -89,7 +89,9 @@
                                 criteria)]
         (cond->> rmap
                  (not with-ts?) (without-ts)
-                 (not lazy?) (into {}))))))
+                 list? (into [])
+                 (and (not list?)
+                      (not lazy?)) (into {}))))))
 
 (defn lazy-scan
   "
