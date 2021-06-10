@@ -45,20 +45,20 @@
 (defn scan-filter [{:keys [keys-only? filter family columns starts-with from to time-range reverse? fetch-size]}]
   (when (and keys-only? filter)
     (throw (ex-info "filter & keys-only?=true cannot be combined" [keys-only? filter])))
-  (let [scanner (Scan.)
-        filter (if keys-only? (get-keys-only-filter) filter)
+  (let [scanner                 (Scan.)
+        filter                  (if keys-only? (get-keys-only-filter) filter)
         {:keys [from-ms to-ms]} time-range
-        params [(if (and family (seq columns))
-                  [add-columns [family columns]]
-                  [add-family family])
-                [set-filter! filter]
-                [set-reverse! reverse?]
-                [set-caching! fetch-size]
-                [set-row-prefix! starts-with]
-                [set-start-row! from]
-                [set-stop-row! to]
-                [set-time-range! (when (or from-ms to-ms) 
-                                   [from-ms to-ms])]]]
+        params                  [(if (and family (seq columns))
+                                   [add-columns [family columns]]
+                                   [add-family family])
+                                 [set-filter! filter]
+                                 [set-reverse! reverse?]
+                                 [set-caching! fetch-size]
+                                 [set-row-prefix! starts-with]
+                                 [set-start-row! from]
+                                 [set-stop-row! to]
+                                 [set-time-range! (when (or from-ms to-ms) 
+                                                    [from-ms to-ms])]]]
     (doall (map (fn [[f p]] 
                   (when p (f scanner p))) params))
     scanner))
