@@ -1,9 +1,7 @@
 (ns cbass.scan
   (:require [cbass.tools :refer [to-bytes from-bytes]])
-  (:import [org.apache.hadoop.hbase.util Bytes]
-           [org.apache.hadoop.hbase TableName HConstants]
-           [org.apache.hadoop.hbase.filter Filter]
-           [org.apache.hadoop.hbase.client Table Get Scan Result]))
+  (:import [org.apache.hadoop.hbase.filter Filter KeyOnlyFilter]
+           [org.apache.hadoop.hbase.client Scan]))
 
 (defn- set-start-row! [^Scan scanner ^String prefix]
   (.setStartRow scanner (to-bytes prefix)))
@@ -39,8 +37,11 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 ;; doing one family many columns for now
-(defn scan-filter [{:keys [filter family columns starts-with from to time-range reverse? fetch-size]}]
+(defn scan-filter [{:keys [keys-only? filter family columns starts-with from to time-range reverse? fetch-size]}]
+  (when (and keys-only? filter)
+    (throw (ex-info "filter & keys-only?=true cannot be combined" [keys-only? filter])))
   (let [scanner (Scan.)
+        filter (if keys-only? (KeyOnlyFilter.) filter)
         {:keys [from-ms to-ms]} time-range
         params [(if (and family (seq columns))
                   [add-columns [family columns]]
