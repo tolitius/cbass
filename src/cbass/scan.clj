@@ -37,7 +37,7 @@
     (.addColumn scanner (to-bytes family) (to-bytes (name c)))))
 
 (defn- get-keys-only-filter []
-  (doto (FilterList. FilterList$Operator/MUST_PASS_ONE)
+  (doto (FilterList. FilterList$Operator/MUST_PASS_ALL)
     (.addFilter (KeyOnlyFilter.))
     (.addFilter (FirstKeyOnlyFilter.))))
 
