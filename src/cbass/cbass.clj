@@ -25,23 +25,34 @@
 (defn ^Table get-table [^Connection c ^String t-name]
   (.getTable c (TableName/valueOf t-name)))
 
-(defn result-key [rk]
-  (-> (String. ^bytes (key rk)) keyword))
+(defn result-key [k result-key-type]
+  (case result-key-type
+    :keyword (-> (String. ^bytes k) keyword)
+    :string (String. ^bytes k)
+    :bytes k
+    (throw (IllegalArgumentException. "result-key-type must be one of the following: [:bytes :string :keyword]"))))
 
-(defn result-value [rv]
-  (@unpack (val rv)))
+(defn result-value [v]
+  (@unpack v))
 
 (defn latest-ts [^Result result]
   (let [cells (.rawCells result)]
     (->> (map #(.getTimestamp ^Cell %) cells)
          (apply max))))
 
-(defn hdata->map [^Result data]
+(defn hdata->map [^Result data {:keys [result-key-type with-ts-per-cell?]
+                                :or {result-key-type :keyword with-ts-per-cell? false}}]
   (when-let [r (.getRow data)]
     (let [ts (latest-ts data)
-          results (for [kv (-> (.getNoVersionMap data) vals first)]
-                    (if-some [v (result-value kv)]
-                      [(result-key kv) v]))]
+          ; with-ts-per-cell? forces usage in the Cells array instead of getNoVersionMap function
+          results (if with-ts-per-cell?
+                    (for [cell (.rawCells data)]
+                      (when-let [v (result-value (.getValueArray cell))]
+                        (let [k (result-key (.getQualifierArray cell) result-key-type)]
+                          [k (if with-ts-per-cell? {:value v :timestamp (.getTimestamp cell)} v)])))
+                    (for [kv (-> (.getNoVersionMap data) vals first)]
+                      (if-some [v (result-value (val kv))]
+                        [(result-key (key kv) result-key-type) v])))]
       (into {:last-updated ts} results))))
 
 (defn map->hdata [row-key family columns timestamp]
@@ -54,12 +65,12 @@
         (.add p f-bytes (to-bytes (name k)) v-bytes)))
     p))
 
-(defn results->maps [results row-key-fn {:keys [keys-only?]}]
+(defn results->maps [results row-key-fn {:keys [keys-only?] :as opts}]
   (for [^Result r results]
     [(row-key-fn (.getRow r))
      (if keys-only?
        {:last-updated (latest-ts r)}
-       (hdata->map r))]))
+       (hdata->map r opts))]))
 
 (defn without-ts [results]
   (for [[k v] results]
@@ -74,6 +85,8 @@
   - from
   - to
   - starts-with
+  - result-key-type - [:bytes :string :keyword]
+  - with-ts-per-cell?
   "
   [conn table & {:keys [row-key-fn limit with-ts? lazy?] :as criteria}]
   (let [scan ^Scan (scan-filter criteria)]
@@ -139,7 +152,7 @@
    (find-by conn table row-key nil nil))
   ([conn table row-key family]
    (find-by conn table row-key family nil))
-  ([conn table row-key family columns & {:keys [time-range]}]
+  ([conn table row-key family columns & {:keys [time-range] :as opts}]
    (with-open [^Table h-table (get-table conn table)]
      (let [^Get g (Get. ^bytes (to-bytes ^String row-key))]
        (when time-range
@@ -150,7 +163,7 @@
              (.addColumn g (to-bytes ^String family) (to-bytes (name c))))
            (.addFamily g (to-bytes ^String family))))
        (-> (.get h-table g)
-           hdata->map)))))
+           (hdata->map opts))))))
 
 (defn store
   ([conn table row-key family]
