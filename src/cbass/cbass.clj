@@ -223,3 +223,11 @@
                :or   {delete-key-fn #(to-bytes %)}} (apply hash-map by)
               bulk                                  (ArrayList. ^Collection (map #(Delete. ^bytes (delete-key-fn %)) row-keys))]
           (.delete h-table ^ArrayList bulk))))))
+
+(defn delete-column
+  "Delete the specified version of the specified column"
+  ([conn table row-key family column timestamp]
+   (with-open [^Table h-table (get-table conn table)]
+     (let [^Delete d (Delete. ^bytes (to-bytes ^String row-key))]
+       (.addColumn d (to-bytes ^String family) (to-bytes (name column)) timestamp)
+       (.delete h-table d)))))
