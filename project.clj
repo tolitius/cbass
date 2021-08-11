@@ -1,4 +1,4 @@
-(defproject cbass "0.2.11"
+(defproject cbass "0.2.13"
   :description "adding simple to HBase"
   :url "https://github.com/tolitius/cbass"
   :license {:name "Eclipse Public License"
@@ -6,7 +6,7 @@
 
   :source-paths ["src" "src/cbass"]
 
-  :dependencies [[org.clojure/clojure "1.10.1"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
                  [org.apache.hbase/hbase-shaded-client "1.4.8"]
                  [aesahaettr "0.1.2"]
                  [com.taoensso/nippy "2.15.3"]]
