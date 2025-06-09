@@ -1,4 +1,5 @@
 (ns cbass.tools
+  (:refer-clojure :exclude [bytes? parse-long])
   (:require [taoensso.nippy :as n]
             [æsahættr :refer [hash-object hash-bytes murmur3-32 murmur3-128]])
   (:import [org.apache.hadoop.hbase.util Bytes]
